@@ -225,6 +225,19 @@ export function renderHome() {
           `).join('')}
         </div>
         <div class="services-show-more-wrap animate-on-scroll" style="text-align: center; margin-top: 48px;">
+          <style>
+            #btn-show-more-services {
+              transition: all 0.3s ease-out !important;
+            }
+            #btn-show-more-services:hover {
+              transform: none !important;
+              background: var(--brown-mid) !important;
+              box-shadow: 0 4px 20px rgba(200, 146, 42, 0.3) !important;
+            }
+            #btn-show-more-services:active {
+              transform: scale(0.98) !important;
+            }
+          </style>
           <button id="btn-show-more-services" class="btn btn-secondary" style="border: 1px solid var(--gold); color: var(--gold-light); font-size: 13px; letter-spacing: 2px; padding: 12px 28px; text-transform: uppercase;">Show More Offerings</button>
         </div>
       </div>
