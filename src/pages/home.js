@@ -609,24 +609,45 @@ export async function initHome() {
     mapDetailsCard.classList.remove('highlight');
   };
 
+  const handleHubClick = (region) => {
+    const modal = document.getElementById('quick-inquiry-modal');
+    if (modal) {
+      modal.classList.add('active');
+      document.body.classList.add('quick-inquiry-open');
+      
+      const messageField = document.getElementById('quick-message');
+      if (messageField) {
+        if (region === 'kashmir') {
+          messageField.value = "Interested in sourcing & distribution logistics for Srinagar / Kashmir Valley region.";
+        } else if (region === 'ladakh') {
+          messageField.value = "Interested in high-altitude logistics & cold climate storage operations in Leh / Ladakh.";
+        }
+      }
+    }
+  };
+
   // Bind Kashmir interactions to both the region path and the Srinagar marker
   if (kashmirPath) {
     kashmirPath.addEventListener('mouseenter', activateKashmir);
     kashmirPath.addEventListener('mouseleave', deactivateKashmir);
+    kashmirPath.addEventListener('click', () => handleHubClick('kashmir'));
   }
   if (srinagarMarker) {
     srinagarMarker.addEventListener('mouseenter', activateKashmir);
     srinagarMarker.addEventListener('mouseleave', deactivateKashmir);
+    srinagarMarker.addEventListener('click', () => handleHubClick('kashmir'));
   }
 
   // Bind Ladakh interactions to both the region path and the Leh marker
   if (ladakhPath) {
     ladakhPath.addEventListener('mouseenter', activateLadakh);
     ladakhPath.addEventListener('mouseleave', deactivateLadakh);
+    ladakhPath.addEventListener('click', () => handleHubClick('ladakh'));
   }
   if (lehMarker) {
     lehMarker.addEventListener('mouseenter', activateLadakh);
     lehMarker.addEventListener('mouseleave', deactivateLadakh);
+    lehMarker.addEventListener('click', () => handleHubClick('ladakh'));
   }
 
   // 6. Testimonials Carousel Slider
