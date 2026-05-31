@@ -1,0 +1,95 @@
+# 🌾 Al Gani - Premium B2B E-Commerce & Supply Chain Portal
+
+Welcome to the **Al Gani** B2B Supply Chain & Catalog Platform. This is a high-fidelity, high-performance web application designed for regional Jammu & Kashmir businesses, offering premium dark-chocolate and gold-accented styling, low-latency animations, dynamic catalog custom offerings, and interactive B2B partner registration.
+
+---
+
+## 🛠️ Technology Stack
+
+* **Frontend:** Vanilla HTML5, CSS3, & Modern ES6 JavaScript built on **Vite**.
+* **Backend:** **Node.js (Express)** serving dynamic APIs.
+* **Database:** **MySQL** storing catalog products, custom services, corporate partners, and B2B inquiries.
+* **Mock Firebase Client Layer:** Drop-in simulated Firebase Auth and Firestore queries mapping seamlessly to local Express APIs.
+* **Styling & Assets:** Harmony-based Vanilla CSS with hardware-accelerated (`will-change`) page loading transitions operating at exactly 250ms.
+
+---
+
+## ✨ Features & Capabilities
+
+1. **🌾 Dynamic Custom Catalog Offerings:**
+   * Dynamic catalog items added via the admin dashboard instantly update the MySQL database and synchronize with the public navigation bar categories, the mobile-responsive menu, the Services Index page, and dynamic service detail pages.
+   * Auto-generates search-friendly slug strings, localized WhatsApp inquiry actions, and custom detail features lists.
+
+2. **🤝 B2B Corporate Partners Module:**
+   * Real-time tracking of corporate B2B partners.
+   * Dynamic status pills with action hooks (approve pending partners instantly).
+   * Manual partner addition with responsive modal forms.
+
+3. **⚡ High-Performance Animations:**
+   * Custom page transition animations triggering and resolving in exactly 250ms (well under the 300ms network budget designed to accommodate unstable J&K connections).
+
+4. **🛡️ Image Resiliency Systems:**
+   * Automated, context-aware image placeholder fallbacks across the client to prevent broken image grids under slow or dropping internet connections.
+
+---
+
+## 🚀 Getting Started Locally
+
+### 1. Prerequisites
+Ensure you have **Node.js (v18+)** and a **MySQL** server active on your system.
+
+### 2. Environment Setup
+Create a `.env` file at the root of the project (`/algani-website/.env`):
+```env
+PORT=5000
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=yourpassword
+DB_NAME=algani_db
+JWT_SECRET=supersecretkey
+```
+
+### 3. Installation
+Install the project dependencies:
+```bash
+npm install
+```
+
+### 4. Running the Application
+To run the server and the client development server concurrently:
+
+* **Start the Express API & Seed Database:**
+  ```bash
+  node server.cjs
+  ```
+  *(This will automatically migrate the schemas and seed the initial catalog/partners tables if they do not exist)*
+
+* **Start the Vite Frontend:**
+  ```bash
+  npm run dev
+  ```
+
+---
+
+## 📦 Production Deployment
+
+### 1. Build Static Assets
+Compile the Vite client files for production:
+```bash
+npm run build
+```
+This builds standard optimized static files inside the `dist/` directory.
+
+### 2. Run API Server in Production
+Keep the Express backend API running robustly in the background using a Node process manager like **PM2**:
+```bash
+pm2 start server.cjs --name "algani-api"
+```
+
+### 3. Web Server Configuration
+Configure **Nginx** or **Apache** to serve the built `dist/` directory and proxy request headers matching `/api/*` directly to `http://localhost:5000`.
+
+---
+
+## 📄 License
+This project is proprietary and reserved for Al Gani B2B operations. All rights reserved.
