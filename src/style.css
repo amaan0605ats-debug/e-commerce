@@ -194,8 +194,7 @@ button {
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 25px rgba(200,146,42,0.4);
+  box-shadow: 0 6px 25px rgba(200,146,42,0.45);
 }
 
 .btn-outline {
@@ -206,7 +205,7 @@ button {
 
 .btn-outline:hover {
   background: rgba(200,146,42,0.15);
-  transform: translateY(-2px);
+  box-shadow: 0 0 15px rgba(200,146,42,0.2);
 }
 
 .btn-secondary {
@@ -216,7 +215,7 @@ button {
 
 .btn-secondary:hover {
   background: var(--brown-mid);
-  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(200,146,42,0.25);
 }
 
 .btn-lg {
