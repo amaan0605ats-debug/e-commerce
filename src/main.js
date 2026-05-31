@@ -370,28 +370,37 @@ document.body.addEventListener('click', (e) => {
 
 // ── FAQ ACCORDION TOGGLE ──
 document.body.addEventListener('click', (e) => {
-  const btn = e.target.closest('.faq-question');
+  const btn = e.target.closest('.faq-question, .faq-trigger');
   if (!btn) return;
 
   const currentItem = btn.closest('.faq-item');
-  const answer = currentItem.querySelector('.faq-answer');
-  const icon = currentItem.querySelector('.faq-icon');
+  if (!currentItem) return;
+
+  const isTrigger = btn.classList.contains('faq-trigger');
+  const answerClass = isTrigger ? '.faq-content' : '.faq-answer';
+  const answer = currentItem.querySelector(answerClass);
+  const icon = currentItem.querySelector(isTrigger ? '.faq-chevron' : '.faq-icon');
   
   const isOpen = currentItem.classList.contains('open');
 
   // Close all other items for a clean accordion effect
   document.querySelectorAll('.faq-item').forEach(item => {
     item.classList.remove('open');
-    const ans = item.querySelector('.faq-answer');
+    const ans = item.querySelector('.faq-content, .faq-answer');
     if (ans) ans.style.maxHeight = null;
+    
     const icn = item.querySelector('.faq-icon');
     if (icn) icn.textContent = '▼';
   });
 
   if (!isOpen) {
     currentItem.classList.add('open');
-    answer.style.maxHeight = answer.scrollHeight + 'px';
-    icon.textContent = '▲';
+    if (answer) {
+      answer.style.maxHeight = answer.scrollHeight + 'px';
+    }
+    if (icon && !isTrigger) {
+      icon.textContent = '▲';
+    }
   }
 });
 
