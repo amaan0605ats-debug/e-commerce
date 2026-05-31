@@ -63,21 +63,21 @@ export function createFooter() {
                 <span class="footer-contact-icon">📞</span>
                 <div>
                   <span class="footer-contact-label">Call</span>
-                  <span class="footer-contact-value">7780901374</span>
+                  <span class="footer-contact-value"><a href="tel:+917780901374" style="color: inherit; text-decoration: none;">+91 7780901374</a></span>
                 </div>
               </li>
               <li>
                 <span class="footer-contact-icon">💬</span>
                 <div>
                   <span class="footer-contact-label">WhatsApp</span>
-                  <span class="footer-contact-value">9419014741</span>
+                  <span class="footer-contact-value"><a href="https://wa.me/919419014741" target="_blank" style="color: inherit; text-decoration: none;">+91 9419014741</a></span>
                 </div>
               </li>
               <li>
                 <span class="footer-contact-icon">✉️</span>
                 <div>
                   <span class="footer-contact-label">Email</span>
-                  <span class="footer-contact-value footer-email">Alganigeneralsupliers@gmail.com</span>
+                  <span class="footer-contact-value footer-email"><a href="mailto:Alganigeneralsupliers@gmail.com" style="color: inherit; text-decoration: none;">Alganigeneralsupliers@gmail.com</a></span>
                 </div>
               </li>
               <li>
