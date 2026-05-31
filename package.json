@@ -1,0 +1,25 @@
+{
+  "name": "algani-website",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"node server.cjs\" \"vite\"",
+    "server": "node server.cjs",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "concurrently": "^10.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "firebase": "^12.14.0",
+    "mysql2": "^3.22.4",
+    "sqlite3": "^6.0.1"
+  }
+}

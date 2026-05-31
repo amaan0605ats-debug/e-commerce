@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Al Gani — General Supplier & Distributors | Kashmir & Leh</title>
+  <meta name="description" content="Al Gani is a premier general supplier and distributor serving Kashmir and the Leh region. We offer interior paneling, flooring, insulation, vending machines, agricultural implements, laboratory equipment, and more.">
+  <meta name="keywords" content="Al Gani, general supplier, Kashmir, Leh, interior paneling, flooring, insulation, vending machines, agriculture, laboratory equipment, beekeeping, cold storage">
+  <meta name="author" content="Al Gani">
+  <meta name="robots" content="index, follow">
+  
+  <!-- Open Graph -->
+  <meta property="og:title" content="Al Gani — Where Purity Meets Heritage">
+  <meta property="og:description" content="General Supplier & Distributors serving Kashmir & the Leh Region with premium quality, regional reach & trust.">
+  <meta property="og:type" content="website">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23C8922A'/%3E%3Cstop offset='100%25' stop-color='%23E0B050'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='12' fill='%231E0E05'/%3E%3Ctext x='50' y='38' text-anchor='middle' font-family='serif' font-weight='900' font-size='42' fill='%23FBF3E3'%3EAG%3C/text%3E%3Crect x='25' y='50' width='50' height='3' fill='url(%23g)'/%3E%3Ctext x='50' y='72' text-anchor='middle' font-family='sans-serif' font-weight='600' font-size='12' fill='%23C8922A' letter-spacing='3'%3ESUPPLIERS%3C/text%3E%3C/svg%3E">
+
+  <!-- Preloader Styles (inline to avoid FOUC) -->
+  <style>
+    .preloader {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: #1E0E05;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+    .preloader-hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+    .preloader-logo {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 42px;
+      font-weight: 700;
+      color: #FBF3E3;
+      letter-spacing: 3px;
+    }
+    .preloader-logo span { color: #C8922A; }
+    .preloader-bar {
+      width: 120px;
+      height: 3px;
+      background: rgba(200,146,42,0.2);
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+    .preloader-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -40%;
+      width: 40%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, #C8922A, #E0B050, transparent);
+      animation: preloaderShimmer 1s ease-in-out infinite;
+    }
+    @keyframes preloaderShimmer {
+      0% { left: -40%; }
+      100% { left: 100%; }
+    }
+    .preloader-text {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 9px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #C8922A;
+    }
+  </style>
+</head>
+<body>
+  <!-- Preloader -->
+  <div class="preloader" id="preloader">
+    <div class="preloader-logo">AL GAN<span>I</span></div>
+    <div class="preloader-bar"></div>
+    <div class="preloader-text">Where Purity Meets Heritage</div>
+  </div>
+
+  <div id="app">
+    <main id="app-content"></main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
