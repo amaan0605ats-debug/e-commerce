@@ -567,46 +567,66 @@ export async function initHome() {
   const srinagarMarker = document.getElementById('marker-srinagar');
   const lehMarker = document.getElementById('marker-leh');
 
-  if (kashmirPath && mapDetailsCard) {
-    kashmirPath.addEventListener('mouseenter', () => {
-      kashmirPath.style.fill = 'rgba(200, 146, 42, 0.4)';
-      srinagarMarker?.classList.add('pulse-active');
-      mapDetailsCard.innerHTML = `
-        <div class="map-details-icon" style="color: var(--gold);">🏔️</div>
-        <div class="map-details-content">
-          <h4 class="map-details-title" style="color: var(--gold-light);">Kashmir Valley Operations</h4>
-          <p class="map-details-text">Daily regional dispatches from our active Nowgam hub. Direct distribution logistics covering Srinagar, Baramulla, Anantnag, Pulwama, and Budgam.</p>
-        </div>
-      `;
-      mapDetailsCard.classList.add('highlight');
-    });
+  const activateKashmir = () => {
+    if (!kashmirPath || !mapDetailsCard) return;
+    kashmirPath.style.fill = 'rgba(200, 146, 42, 0.4)';
+    srinagarMarker?.classList.add('pulse-active');
+    mapDetailsCard.innerHTML = `
+      <div class="map-details-icon" style="color: var(--gold);">🏔️</div>
+      <div class="map-details-content">
+        <h4 class="map-details-title" style="color: var(--gold-light);">Kashmir Valley Operations</h4>
+        <p class="map-details-text">Daily regional dispatches from our active Nowgam hub. Direct distribution logistics covering Srinagar, Baramulla, Anantnag, Pulwama, and Budgam.</p>
+      </div>
+    `;
+    mapDetailsCard.classList.add('highlight');
+  };
 
-    kashmirPath.addEventListener('mouseleave', () => {
-      kashmirPath.style.fill = '';
-      srinagarMarker?.classList.remove('pulse-active');
-      mapDetailsCard.classList.remove('highlight');
-    });
+  const deactivateKashmir = () => {
+    if (!kashmirPath || !mapDetailsCard) return;
+    kashmirPath.style.fill = '';
+    srinagarMarker?.classList.remove('pulse-active');
+    mapDetailsCard.classList.remove('highlight');
+  };
+
+  const activateLadakh = () => {
+    if (!ladakhPath || !mapDetailsCard) return;
+    ladakhPath.style.fill = 'rgba(200, 146, 42, 0.3)';
+    lehMarker?.classList.add('pulse-active');
+    mapDetailsCard.innerHTML = `
+      <div class="map-details-icon" style="color: var(--gold-light);">🏔️</div>
+      <div class="map-details-content">
+        <h4 class="map-details-title" style="color: var(--gold-light);">Leh / Ladakh Operations</h4>
+        <p class="map-details-text">Weekly high-altitude cold climate route via Kargil. Specialized supply chains and local winter storage facilities serving Leh City.</p>
+      </div>
+    `;
+    mapDetailsCard.classList.add('highlight');
+  };
+
+  const deactivateLadakh = () => {
+    if (!ladakhPath || !mapDetailsCard) return;
+    ladakhPath.style.fill = '';
+    lehMarker?.classList.remove('pulse-active');
+    mapDetailsCard.classList.remove('highlight');
+  };
+
+  // Bind Kashmir interactions to both the region path and the Srinagar marker
+  if (kashmirPath) {
+    kashmirPath.addEventListener('mouseenter', activateKashmir);
+    kashmirPath.addEventListener('mouseleave', deactivateKashmir);
+  }
+  if (srinagarMarker) {
+    srinagarMarker.addEventListener('mouseenter', activateKashmir);
+    srinagarMarker.addEventListener('mouseleave', deactivateKashmir);
   }
 
-  if (ladakhPath && mapDetailsCard) {
-    ladakhPath.addEventListener('mouseenter', () => {
-      ladakhPath.style.fill = 'rgba(200, 146, 42, 0.3)';
-      lehMarker?.classList.add('pulse-active');
-      mapDetailsCard.innerHTML = `
-        <div class="map-details-icon" style="color: var(--gold-light);">🏔️</div>
-        <div class="map-details-content">
-          <h4 class="map-details-title" style="color: var(--gold-light);">Leh / Ladakh Operations</h4>
-          <p class="map-details-text">Weekly high-altitude cold climate route via Kargil. Specialized supply chains and local winter storage facilities serving Leh City.</p>
-        </div>
-      `;
-      mapDetailsCard.classList.add('highlight');
-    });
-
-    ladakhPath.addEventListener('mouseleave', () => {
-      ladakhPath.style.fill = '';
-      lehMarker?.classList.remove('pulse-active');
-      mapDetailsCard.classList.remove('highlight');
-    });
+  // Bind Ladakh interactions to both the region path and the Leh marker
+  if (ladakhPath) {
+    ladakhPath.addEventListener('mouseenter', activateLadakh);
+    ladakhPath.addEventListener('mouseleave', deactivateLadakh);
+  }
+  if (lehMarker) {
+    lehMarker.addEventListener('mouseenter', activateLadakh);
+    lehMarker.addEventListener('mouseleave', deactivateLadakh);
   }
 
   // 6. Testimonials Carousel Slider
