@@ -42,6 +42,126 @@ const whatsappContainer = document.createElement('div');
 whatsappContainer.className = 'whatsapp-floating-widget';
 whatsappContainer.id = 'whatsapp-floating-widget';
 whatsappContainer.innerHTML = `
+  <style>
+    .whatsapp-chat-log {
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 10px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 12px;
+      scroll-behavior: smooth;
+    }
+    .whatsapp-chat-log::-webkit-scrollbar {
+      width: 4px;
+    }
+    .whatsapp-chat-log::-webkit-scrollbar-thumb {
+      background: rgba(200, 146, 42, 0.2);
+      border-radius: 2px;
+    }
+    .wa-msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 11.5px;
+      line-height: 1.5;
+      font-family: 'Montserrat', sans-serif;
+    }
+    .wa-msg-bot {
+      background: rgba(251, 243, 227, 0.05);
+      border: 1px solid rgba(224, 176, 80, 0.15);
+      color: #FBF3E3;
+      align-self: flex-start;
+      border-top-left-radius: 2px;
+    }
+    .wa-msg-user {
+      background: #075E54;
+      color: #FFFFFF;
+      align-self: flex-end;
+      border-top-right-radius: 2px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .wa-typing {
+      align-self: flex-start;
+      background: rgba(251, 243, 227, 0.03);
+      border: 1px solid rgba(224, 176, 80, 0.1);
+      color: rgba(251, 243, 227, 0.6);
+      padding: 8px 12px;
+      font-style: italic;
+      font-size: 10.5px;
+      border-radius: 10px;
+      display: none;
+      margin-bottom: 8px;
+    }
+    .wa-quick-replies {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .wa-reply-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: rgba(251, 243, 227, 0.04);
+      border: 1px solid rgba(224, 176, 80, 0.2);
+      border-radius: 8px;
+      color: #FBF3E3;
+      font-size: 11.5px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .wa-reply-btn:hover {
+      background: rgba(37, 211, 102, 0.1);
+      border-color: #25D366;
+      color: #25D366;
+      transform: translateX(4px);
+    }
+    .wa-action-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px;
+      background: #25D366;
+      color: #FFFFFF !important;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      text-decoration: none;
+      box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+      transition: all 0.3s ease;
+      margin-top: 8px;
+    }
+    .wa-action-btn:hover {
+      background: #20ba59;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(37, 211, 102, 0.5);
+    }
+    .wa-restart-btn {
+      background: transparent;
+      border: 1px dashed rgba(224, 176, 80, 0.3);
+      color: #E0B050;
+      padding: 8px;
+      text-align: center;
+      font-size: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: all 0.25s ease;
+      width: 100%;
+    }
+    .wa-restart-btn:hover {
+      background: rgba(224, 176, 80, 0.05);
+      border-color: var(--gold);
+      color: var(--gold-light);
+    }
+  </style>
+
   <button class="whatsapp-trigger" id="whatsapp-trigger" aria-label="Chat on WhatsApp">
     <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
       <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.335 4.963L2 22l5.21-1.366a9.936 9.936 0 0 0 4.79 1.23h.004c5.505 0 9.988-4.478 9.99-9.984a9.96 9.96 0 0 0-9.982-9.88zM6.837 5.75c.148-.327.4-.354.577-.354.148-.007.327-.007.478-.007.148 0 .393.054.6.49.206.435.707 1.714.77 1.837.062.122.102.265.02.428-.082.163-.122.265-.245.408-.122.143-.258.32-.367.43-.11.115-.224.238-.095.456.129.218.572.946 1.226 1.524.843.748 1.558.98 1.782 1.096.225.115.354.095.483-.054.129-.15.558-.646.707-.864.15-.218.3-.184.5-.11.2.075 1.265.592 1.483.7.218.11.36.163.415.258.054.095.054.551-.163 1.17-.218.62-1.272 1.21-1.782 1.265-.51.054-.993-.082-3.32-.999-2.73-1.074-4.48-3.83-4.61-4-.13-.17-1.04-1.38-1.04-2.636 0-1.25.65-1.864.88-2.11z"/>
@@ -53,27 +173,124 @@ whatsappContainer.innerHTML = `
     <div class="whatsapp-popup-header">
       <div class="whatsapp-popup-header-icon">💬</div>
       <div>
-        <h4 class="whatsapp-popup-title">Al Gani WhatsApp Support</h4>
-        <p class="whatsapp-popup-subtitle">Instant B2B response line</p>
+        <h4 class="whatsapp-popup-title">Al Gani B2B Assistant</h4>
+        <p class="whatsapp-popup-subtitle">Instant B2B Chatbot</p>
       </div>
     </div>
     <div class="whatsapp-popup-body">
-      <p style="margin-bottom:12px; font-size:12px; opacity:0.85; color:#FBF3E3;">Select an option to launch WhatsApp chat directly with our team:</p>
-      <div style="display:flex; flex-direction:column; gap:8px;">
-        <a href="https://wa.me/919419014741?text=Hello%20Al%20Gani!%20I%20would%20like%20to%20request%20a%20B2B%20wholesale%20quotation." target="_blank" class="whatsapp-popup-link">
-          <span>📋 Request Wholesale Quote</span>
-        </a>
-        <a href="https://wa.me/919419014741?text=Hello%20Al%20Gani!%20I%20have%20an%20inquiry%20regarding%20CafeVend%20Vending%20Machines." target="_blank" class="whatsapp-popup-link">
-          <span>☕ Vending Machine Solutions</span>
-        </a>
-        <a href="https://wa.me/919419014741?text=Hello%20Al%20Gani!%20I%20would%20like%20to%20speak%20directly%20with%20Syed%20Mir%20Aftab." target="_blank" class="whatsapp-popup-link">
-          <span>👤 Contact Syed Mir Aftab (MD)</span>
-        </a>
+      <div class="whatsapp-chat-log" id="wa-chat-log">
+        <div class="wa-msg wa-msg-bot">
+          Hello! Welcome to Al Gani Suppliers. 🌾 How can we support your B2B supply chain or equipment needs today?
+        </div>
+      </div>
+      <div class="wa-typing" id="wa-typing">Al Gani is typing...</div>
+      <div class="wa-quick-replies" id="wa-quick-replies">
+        <button class="wa-reply-btn" data-key="quote">📋 Request Wholesale Quote</button>
+        <button class="wa-reply-btn" data-key="vending">☕ Vending Machine Solutions</button>
+        <button class="wa-reply-btn" data-key="partner">🤝 Sourcing & Partnership</button>
+        <button class="wa-reply-btn" data-key="md">👤 Speak with Syed Mir Aftab (MD)</button>
       </div>
     </div>
   </div>
 `;
 document.body.appendChild(whatsappContainer);
+
+// Chatbot logic
+const chatLog = whatsappContainer.querySelector('#wa-chat-log');
+const typingIndicator = whatsappContainer.querySelector('#wa-typing');
+const quickRepliesContainer = whatsappContainer.querySelector('#wa-quick-replies');
+
+const botResponses = {
+  quote: {
+    message: "Absolutely! We distribute wholesale supplies across J&K. Click the button below to launch a chat directly with our sales team and receive a catalog.",
+    text: "Hello Al Gani! I would like to request a B2B wholesale quotation."
+  },
+  vending: {
+    message: "Excellent choice! Our CafeVend series smart vending machines are perfect for B2B establishments. Click below to coordinate with our servicing team.",
+    text: "Hello Al Gani! I have an inquiry regarding CafeVend Vending Machines."
+  },
+  partner: {
+    message: "Fantastic! We coordinate regional logistics and cold storage setups. Click below to propose a distribution contract or partner sourcing.",
+    text: "Hello Al Gani! I want to discuss a wholesale supply or distribution partnership."
+  },
+  md: {
+    message: "Understood. Connect directly with our Managing Director, Syed Mir Aftab, to discuss custom contracts or import tenders.",
+    text: "Hello Al Gani! I would like to speak directly with Syed Mir Aftab."
+  }
+};
+
+quickRepliesContainer?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.wa-reply-btn');
+  if (!btn) return;
+  
+  const key = btn.dataset.key;
+  const reply = botResponses[key];
+  if (!reply) return;
+  
+  // Append User message
+  const userBubble = document.createElement('div');
+  userBubble.className = 'wa-msg wa-msg-user';
+  userBubble.textContent = btn.textContent;
+  chatLog.appendChild(userBubble);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  
+  // Hide replies
+  quickRepliesContainer.style.display = 'none';
+  
+  // Show typing indicator
+  typingIndicator.style.display = 'block';
+  chatLog.scrollTop = chatLog.scrollHeight;
+  
+  setTimeout(() => {
+    typingIndicator.style.display = 'none';
+    
+    // Append Bot response
+    const botBubble = document.createElement('div');
+    botBubble.className = 'wa-msg wa-msg-bot';
+    botBubble.textContent = reply.message;
+    chatLog.appendChild(botBubble);
+    
+    // Add WhatsApp Direct CTA & Restart CTA
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'wa-chat-actions';
+    actionsContainer.style.display = 'flex';
+    actionsContainer.style.flexDirection = 'column';
+    actionsContainer.style.gap = '6px';
+    actionsContainer.style.width = '100%';
+    
+    const waLink = document.createElement('a');
+    waLink.className = 'wa-action-btn';
+    waLink.href = `https://wa.me/919419014741?text=${encodeURIComponent(reply.text)}`;
+    waLink.target = '_blank';
+    waLink.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.335 4.963L2 22l5.21-1.366a9.936 9.936 0 0 0 4.79 1.23h.004c5.505 0 9.988-4.478 9.99-9.984a9.96 9.96 0 0 0-9.982-9.88zM6.837 5.75c.148-.327.4-.354.577-.354.148-.007.327-.007.478-.007.148 0 .393.054.6.49.206.435.707 1.714.77 1.837.062.122.102.265.02.428-.082.163-.122.265-.245.408-.122.143-.258.32-.367.43-.11.115-.224.238-.095.456.129.218.572.946 1.226 1.524.843.748 1.558.98 1.782 1.096.225.115.354.095.483-.054.129-.15.558-.646.707-.864.15-.218.3-.184.5-.11.2.075 1.265.592 1.483.7.218.11.36.163.415.258.054.095.054.551-.163 1.17-.218.62-1.272 1.21-1.782 1.265-.51.054-.993-.082-3.32-.999-2.73-1.074-4.48-3.83-4.61-4-.13-.17-1.04-1.38-1.04-2.636 0-1.25.65-1.864.88-2.11z"/>
+      </svg>
+      <span>Launch Live Chat</span>
+    `;
+    
+    const restartBtn = document.createElement('button');
+    restartBtn.className = 'wa-restart-btn';
+    restartBtn.textContent = '🔄 Ask Another Question / Start Over';
+    
+    restartBtn.addEventListener('click', () => {
+      // Clear log to original message
+      chatLog.innerHTML = `
+        <div class="wa-msg wa-msg-bot">
+          Hello! Welcome to Al Gani Suppliers. 🌾 How can we support your B2B supply chain or equipment needs today?
+        </div>
+      `;
+      // Restore quick replies
+      quickRepliesContainer.style.display = 'flex';
+    });
+    
+    actionsContainer.appendChild(waLink);
+    actionsContainer.appendChild(restartBtn);
+    chatLog.appendChild(actionsContainer);
+    
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }, 800);
+});
 
 // Trigger toggle logic
 const waTrigger = whatsappContainer.querySelector('#whatsapp-trigger');
