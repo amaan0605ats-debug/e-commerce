@@ -412,8 +412,11 @@ document.body.addEventListener('click', (e) => {
   const emailHref = mailLink.getAttribute('href');
   if (emailHref && emailHref.includes('Alganigeneralsupliers@gmail.com')) {
     e.preventDefault();
-    const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&to=Alganigeneralsupliers@gmail.com';
-    window.open(gmailUrl, '_blank');
+    const confirmMail = confirm("Would you like to open Gmail in a new tab to send an email directly to Al Gani?");
+    if (confirmMail) {
+      const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&to=Alganigeneralsupliers@gmail.com';
+      window.open(gmailUrl, '_blank');
+    }
   }
 });
 
