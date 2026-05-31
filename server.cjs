@@ -204,13 +204,23 @@ async function seedDatabase() {
     const [adminRows] = await pool.query('SELECT COUNT(*) as count FROM admins');
     if (adminRows[0].count === 0) {
       console.log('Seeding default administrator credentials...');
-      const hashedPassword = bcrypt.hashSync('admin123', 10);
+      
+      const admin1Email = process.env.ADMIN_EMAIL_1 || 'admin1@algani.com';
+      const admin1Pass = process.env.ADMIN_PASSWORD_1 || 'admin123';
+      const admin1Name = process.env.ADMIN_NAME_1 || 'Syed Mir Aftab';
+      
+      const admin2Email = process.env.ADMIN_EMAIL_2 || 'admin2@algani.com';
+      const admin2Pass = process.env.ADMIN_PASSWORD_2 || 'admin123';
+      const admin2Name = process.env.ADMIN_NAME_2 || 'Mohammad Ayoub Bhat';
+
+      const hashedPassword1 = bcrypt.hashSync(admin1Pass, 10);
+      const hashedPassword2 = bcrypt.hashSync(admin2Pass, 10);
       
       await pool.query(
         'INSERT INTO admins (id, email, password, displayName) VALUES (?, ?, ?, ?), (?, ?, ?, ?)',
         [
-          'admin-aftab', 'aftab@algani.com', hashedPassword, 'Syed Mir Aftab',
-          'admin-ayoub', 'ayoub@algani.com', hashedPassword, 'Mohammad Ayoub Bhat'
+          'admin-1', admin1Email, hashedPassword1, admin1Name,
+          'admin-2', admin2Email, hashedPassword2, admin2Name
         ]
       );
     }
