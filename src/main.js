@@ -404,6 +404,19 @@ document.body.addEventListener('click', (e) => {
   }
 });
 
+// ── EMAIL CLICK REDIRECT INTERCEPTOR ──
+document.body.addEventListener('click', (e) => {
+  const mailLink = e.target.closest('a[href^="mailto:"]');
+  if (!mailLink) return;
+
+  const emailHref = mailLink.getAttribute('href');
+  if (emailHref && emailHref.includes('Alganigeneralsupliers@gmail.com')) {
+    e.preventDefault();
+    const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&to=Alganigeneralsupliers@gmail.com';
+    window.open(gmailUrl, '_blank');
+  }
+});
+
 // ── GLOBAL THEME TOGGLE CLICK HANDLER ──
 document.body.addEventListener('click', (e) => {
   const btn = e.target.closest('.theme-toggle-btn');
