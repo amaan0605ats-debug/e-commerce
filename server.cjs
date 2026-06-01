@@ -68,20 +68,34 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, database: Boolean(pool) });
+  res.json({
+    ok: Boolean(pool),
+    database: Boolean(pool),
+    smtp: isEmailConfigured(),
+    ...(pool
+      ? {}
+      : {
+          fix:
+            'Add MYSQL_URL (TiDB connection string) in Render → Environment, set DB_SSL=true, then redeploy.',
+          lastError: lastDbError || 'Database pool not initialized',
+        }),
+  });
 });
 
 // Serving built frontend assets if they are static in production
 app.use(express.static(path.join(__dirname, 'dist')));
 
 let pool;
+let lastDbError = null;
 
 // Database connectivity verification middleware
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api') && !pool) {
+  if (req.path.startsWith('/api') && req.path !== '/api/health' && !pool) {
     return res.status(503).json({
       code: 'auth/database-error',
-      error: 'Database connection failed. Please ensure your local MySQL server is running and check your .env configuration.'
+      error:
+        'Database not connected. On Render, set MYSQL_URL to your TiDB Cloud connection string and DB_SSL=true, then redeploy.',
+      detail: lastDbError || undefined,
     });
   }
   next();
@@ -287,9 +301,13 @@ async function initDatabase() {
     await seedDatabase();
 
   } catch (error) {
+    lastDbError = error.message || String(error);
+    pool = null;
     console.error('❌ Database Initialization Failed!');
     console.error(error);
-    console.error('\n⚠️ Please ensure your MySQL local server is running and check your .env settings.');
+    console.error(
+      '\n⚠️ Set MYSQL_URL (TiDB) and DB_SSL=true in Render Environment, or DB_* for local MySQL.'
+    );
   }
 }
 

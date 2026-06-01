@@ -135,7 +135,16 @@ const addDoc = async (collectionRef, data) => {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to create B2B record in collection '${path}'`);
+    let detail = '';
+    try {
+      const errBody = await res.json();
+      detail = errBody.error || errBody.detail || JSON.stringify(errBody);
+    } catch {
+      detail = await res.text().catch(() => '');
+    }
+    throw new Error(
+      `API error ${res.status} on /api/${path}${detail ? `: ${detail}` : ''}`
+    );
   }
 
   const savedData = await res.json();
