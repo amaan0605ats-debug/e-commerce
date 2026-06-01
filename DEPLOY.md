@@ -97,6 +97,18 @@ If deploy logs show **TLS / certificate** errors, add:
 
 ---
 
+## Alternative — Railway (paid, simpler MySQL)
+
+1. [https://railway.app](https://railway.app) → **New Project** → **Deploy from GitHub** → `e-commerce`.
+2. **Add service** → **MySQL** (Railway injects `MYSQLHOST`, `MYSQLPORT`, etc. automatically).
+3. Set env on the web service: `ADMIN_PASSWORD_1`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`.
+4. Do **not** set `DB_SSL=true` for Railway’s internal MySQL unless their docs require it.
+5. Deploy uses `railway.toml` (`npm run build` + `npm start`). Check `/api/health` → `"database": true`.
+
+Optional: paste Railway’s public `MYSQL_URL` instead of individual vars; set `DB_SSL=true` only for external/public URLs.
+
+---
+
 ## Do not use Netlify for this project
 
 Netlify only publishes the `dist/` folder. It does **not** run `server.cjs`, so `/api` and admin will not work. Use Render + TiDB instead.

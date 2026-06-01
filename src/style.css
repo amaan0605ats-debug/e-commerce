@@ -888,6 +888,22 @@ button {
   pointer-events: none;
 }
 
+.hero-bg-video--light {
+  display: none;
+}
+
+body[data-theme="light"] .hero-bg-video--light {
+  display: block;
+}
+
+body[data-theme="light"] .hero-bg-video--dark {
+  display: none;
+}
+
+body[data-theme="dark"] .hero-bg-video--dark {
+  display: block;
+}
+
 
 .hero-bg-pattern {
   position: absolute;

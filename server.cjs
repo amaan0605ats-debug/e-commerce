@@ -23,7 +23,7 @@ if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
 
-// Parse DB_HOST/DB_* or cloud MYSQL_URL (TiDB, Aiven, Railway, etc.)
+// Parse DB_HOST/DB_*, Railway MYSQL* vars, or cloud MYSQL_URL (TiDB, Railway, etc.)
 function parseDbConfig() {
   const rawUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
   if (rawUrl && /^mysql2?:\/\//i.test(rawUrl)) {
@@ -33,13 +33,30 @@ function parseDbConfig() {
       'algani_db';
     return {
       host: url.hostname,
-      port: parseInt(url.port || '4000', 10),
+      port: parseInt(url.port || '3306', 10),
       user: decodeURIComponent(url.username),
       password: decodeURIComponent(url.password),
       database,
       isManaged: true,
     };
   }
+
+  const railwayHost = process.env.MYSQLHOST || process.env.MYSQL_HOST;
+  if (railwayHost) {
+    return {
+      host: railwayHost,
+      port: parseInt(process.env.MYSQLPORT || process.env.MYSQL_PORT || '3306', 10),
+      user: process.env.MYSQLUSER || process.env.MYSQL_USER || 'root',
+      password: process.env.MYSQLPASSWORD || process.env.MYSQL_PASSWORD || '',
+      database:
+        process.env.MYSQLDATABASE ||
+        process.env.MYSQL_DATABASE ||
+        process.env.MYSQL_DB ||
+        'railway',
+      isManaged: true,
+    };
+  }
+
   return {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '3306', 10),
@@ -55,20 +72,23 @@ function getDbSslOptions() {
   if (
     process.env.DB_SSL === 'true' ||
     process.env.MYSQL_URL ||
-    process.env.DATABASE_URL ||
-    process.env.NODE_ENV === 'production'
+    process.env.DATABASE_URL
   ) {
     return { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' };
   }
   return undefined;
 }
 
+let pool;
+let lastDbError = null;
+
 // Enable CORS and JSON parsing
 app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {
-  res.json({
+  // Always 200 so Render health checks pass while TiDB is still connecting
+  res.status(200).json({
     ok: Boolean(pool),
     database: Boolean(pool),
     smtp: isEmailConfigured(),
@@ -76,17 +96,11 @@ app.get('/api/health', (req, res) => {
       ? {}
       : {
           fix:
-            'Add MYSQL_URL (TiDB connection string) in Render → Environment, set DB_SSL=true, then redeploy.',
+            'Set MYSQL_URL (cloud) or link Railway MySQL (MYSQLHOST vars). For TiDB/Render add DB_SSL=true, then redeploy.',
           lastError: lastDbError || 'Database pool not initialized',
         }),
   });
 });
-
-// Serving built frontend assets if they are static in production
-app.use(express.static(path.join(__dirname, 'dist')));
-
-let pool;
-let lastDbError = null;
 
 // Database connectivity verification middleware
 app.use((req, res, next) => {
@@ -94,7 +108,7 @@ app.use((req, res, next) => {
     return res.status(503).json({
       code: 'auth/database-error',
       error:
-        'Database not connected. On Render, set MYSQL_URL to your TiDB Cloud connection string and DB_SSL=true, then redeploy.',
+        'Database not connected. Set MYSQL_URL (TiDB/Render) or Railway MySQL variables, then redeploy.',
       detail: lastDbError || undefined,
     });
   }
@@ -306,7 +320,7 @@ async function initDatabase() {
     console.error('❌ Database Initialization Failed!');
     console.error(error);
     console.error(
-      '\n⚠️ Set MYSQL_URL (TiDB) and DB_SSL=true in Render Environment, or DB_* for local MySQL.'
+      '\n⚠️ Set MYSQL_URL + DB_SSL=true (TiDB/Render), Railway MYSQL* vars, or DB_* for local MySQL.'
     );
   }
 }
@@ -1073,6 +1087,9 @@ app.put('/api/auth/change-password', async (req, res) => {
 });
 
 
+// Built frontend (Vite copies public/ into dist/ on npm run build)
+app.use(express.static(path.join(__dirname, 'dist')));
+
 // Redirect route for SPA index.html matching fallback
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'), (err) => {
@@ -1083,8 +1100,11 @@ app.use((req, res) => {
   });
 });
 
-// Start listening and run db initializations
-app.listen(PORT, async () => {
-  console.log(`🚀 Server initialized at http://localhost:${PORT}`);
-  await initDatabase();
+// Listen immediately (Render health check); init DB in background
+app.listen(PORT, () => {
+  console.log(`🚀 Server listening on http://localhost:${PORT}`);
+  initDatabase().catch((err) => {
+    lastDbError = err.message || String(err);
+    console.error('Database init failed:', err);
+  });
 });
