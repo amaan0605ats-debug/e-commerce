@@ -19,9 +19,54 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
+// Parse DB_HOST/DB_* or cloud MYSQL_URL (TiDB, Aiven, Railway, etc.)
+function parseDbConfig() {
+  const rawUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
+  if (rawUrl && /^mysql2?:\/\//i.test(rawUrl)) {
+    const url = new URL(rawUrl);
+    return {
+      host: url.hostname,
+      port: parseInt(url.port || '3306', 10),
+      user: decodeURIComponent(url.username),
+      password: decodeURIComponent(url.password),
+      database: decodeURIComponent(url.pathname.replace(/^\//, '')),
+      isManaged: true,
+    };
+  }
+  return {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '3306', 10),
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'algani_db',
+    isManaged: process.env.DB_MANAGED === 'true',
+  };
+}
+
+function getDbSslOptions() {
+  if (process.env.DB_SSL === 'false') return undefined;
+  if (
+    process.env.DB_SSL === 'true' ||
+    process.env.MYSQL_URL ||
+    process.env.DATABASE_URL ||
+    process.env.NODE_ENV === 'production'
+  ) {
+    return { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' };
+  }
+  return undefined;
+}
+
 // Enable CORS and JSON parsing
 app.use(cors());
 app.use(express.json());
+
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, database: Boolean(pool) });
+});
 
 // Serving built frontend assets if they are static in production
 app.use(express.static(path.join(__dirname, 'dist')));
@@ -41,31 +86,39 @@ app.use((req, res, next) => {
 
 // ── DATABASE INITIALIZATION & SCHEMA CREATION ──
 async function initDatabase() {
+  const dbConfig = parseDbConfig();
+  const ssl = getDbSslOptions();
+
   try {
-    console.log(`Connecting to MySQL server at ${process.env.DB_HOST}:${process.env.DB_PORT || '3306'}...`);
-    
-    // Initial connection to server without database selected (to create it if missing)
-    const conn = await mysql.createConnection({
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '3306'),
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '',
-    });
+    console.log(
+      `Connecting to MySQL at ${dbConfig.host}:${dbConfig.port} (database: ${dbConfig.database})...`
+    );
 
-    console.log(`Creating database '${process.env.DB_NAME || 'algani_db'}' if it doesn't exist...`);
-    await conn.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME || 'algani_db'}\``);
-    await conn.end();
+    // Local/dev only — managed cloud databases already have a database provisioned
+    if (!dbConfig.isManaged) {
+      const conn = await mysql.createConnection({
+        host: dbConfig.host,
+        port: dbConfig.port,
+        user: dbConfig.user,
+        password: dbConfig.password,
+        ssl,
+      });
 
-    // Now initialize connection pool with database selected
+      console.log(`Creating database '${dbConfig.database}' if it doesn't exist...`);
+      await conn.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
+      await conn.end();
+    }
+
     pool = mysql.createPool({
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '3306'),
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'algani_db',
+      host: dbConfig.host,
+      port: dbConfig.port,
+      user: dbConfig.user,
+      password: dbConfig.password,
+      database: dbConfig.database,
+      ssl,
       waitForConnections: true,
       connectionLimit: 10,
-      queueLimit: 0
+      queueLimit: 0,
     });
 
     console.log('Connected to MySQL pool. Initializing tables...');

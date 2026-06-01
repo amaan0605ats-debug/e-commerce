@@ -1,0 +1,37 @@
+# Render Blueprint (Free Web Service)
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: algani-website
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD_1
+        sync: false
+      # Free MySQL-compatible host (e.g. TiDB Cloud Serverless) — paste connection string in Render dashboard
+      - key: MYSQL_URL
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false

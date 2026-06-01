@@ -104,5 +104,45 @@ Configure **Nginx** or **Apache** to serve the built `dist/` directory and proxy
 
 ---
 
+## ☁️ Deploy on Render (Free Web Service)
+
+Render’s **free web service** can host this app (site + API in one process). Render does **not** include free MySQL—you need a free MySQL-compatible database elsewhere (recommended: [TiDB Cloud Serverless](https://tidbcloud.com/) — MySQL compatible, free tier).
+
+### 1. Push code to GitHub
+Ensure `main` is up to date on your GitHub repo.
+
+### 2. Create the web service on Render
+1. Sign in at [render.com](https://render.com/) → **New** → **Blueprint**.
+2. Connect repository `amaan0605ats-debug/e-commerce`.
+3. Render detects `render.yaml` → **Apply**.
+
+Or manually: **New** → **Web Service** → connect repo → settings:
+- **Build command:** `npm install && npm run build`
+- **Start command:** `npm start`
+- **Plan:** Free
+
+### 3. Environment variables (Render dashboard → Environment)
+
+| Variable | Example / notes |
+|----------|-----------------|
+| `MYSQL_URL` | `mysql://user:pass@host:4000/dbname` from TiDB (or other host) |
+| `DB_SSL` | `true` (set `DB_SSL_REJECT_UNAUTHORIZED=false` only if TLS errors) |
+| `ADMIN_PASSWORD_1` | Your admin login password |
+| `JWT_SECRET` | Long random string (or use Render “Generate”) |
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USER` | `alganigeneralsupplier@gmail.com` |
+| `SMTP_PASS` | Gmail app password |
+| `SMTP_FROM` | `"Al Gani General Suppliers <alganigeneralsupplier@gmail.com>"` |
+
+Do **not** commit `.env` to GitHub.
+
+### 4. Deploy
+Click **Deploy**. When the build finishes, open your `*.onrender.com` URL.
+
+**Free tier notes:** The service sleeps after ~15 minutes of no traffic (first visit may take 30–60s to wake). Database and SMTP must stay configured in the dashboard.
+
+---
+
 ## 📄 License
 This project is proprietary and reserved for Al Gani B2B operations. All rights reserved.
