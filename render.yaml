@@ -9,7 +9,6 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
-    healthCheckGracePeriod: 120
     envVars:
       - key: DB_SSL_REJECT_UNAUTHORIZED
         value: "false"
