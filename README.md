@@ -38,6 +38,19 @@ Welcome to the **Al Gani** B2B Supply Chain & Catalog Platform. This is a high-f
 
 ---
 
+## 📁 Project structure
+
+```
+algani-website/
+├── frontend/          # Vite app (src/, public/, index.html)
+├── backend/           # Express API (server.cjs, lib/, scripts/)
+├── .env               # Shared config (repo root)
+├── package.json       # npm workspaces — dev, build, start
+└── render.yaml
+```
+
+---
+
 ## 🚀 Getting Started Locally
 
 ### 1. Prerequisites
@@ -69,18 +82,16 @@ npm install
 ```
 
 ### 4. Running the Application
-To run the server and the client development server concurrently:
+Start **both** API and Vite dev server:
 
-* **Start the Express API & Seed Database:**
-  ```bash
-  node server.cjs
-  ```
-  *(This will automatically migrate the schemas and seed the initial catalog/partners tables if they do not exist)*
+```bash
+npm run dev
+```
 
-* **Start the Vite Frontend:**
-  ```bash
-  npm run dev
-  ```
+- Frontend: http://localhost:5173 (proxies `/api` → backend)
+- Backend: http://localhost:5000
+
+Or run separately: `npm run dev -w backend` and `npm run dev -w frontend`.
 
 ---
 
@@ -91,16 +102,16 @@ Compile the Vite client files for production:
 ```bash
 npm run build
 ```
-This builds standard optimized static files inside the `dist/` directory.
+This builds static files into `frontend/dist/`.
 
 ### 2. Run API Server in Production
-Keep the Express backend API running robustly in the background using a Node process manager like **PM2**:
 ```bash
-pm2 start server.cjs --name "algani-api"
+npm start
 ```
+*(serves `frontend/dist` and `/api` from `backend/server.cjs`)*
 
 ### 3. Web Server Configuration
-Configure **Nginx** or **Apache** to serve the built `dist/` directory and proxy request headers matching `/api/*` directly to `http://localhost:5000`.
+Configure **Nginx** or **Apache** to serve `frontend/dist/` and proxy `/api/*` to `http://localhost:5000`.
 
 ---
 

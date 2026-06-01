@@ -2,7 +2,7 @@
  * Test SMTP after setting SMTP_PASS in .env:
  *   node scripts/test-email.cjs you@example.com
  */
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
 
 const {
   isEmailConfigured,

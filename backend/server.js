@@ -5,9 +5,10 @@ const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 const path = require('path');
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from repo root
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
+const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -16,7 +17,7 @@ app.use(cors());
 app.use(express.json());
 
 // Serving built frontend assets if they are static in production
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(FRONTEND_DIST));
 
 let pool;
 
@@ -458,7 +459,7 @@ app.put('/api/products/:slug', async (req, res) => {
 
 // Redirect route for SPA index.html matching fallback
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'), (err) => {
+  res.sendFile(path.join(FRONTEND_DIST, 'index.html'), (err) => {
     // If not built yet, return simple startup success message
     if (err) {
       res.status(200).send('Al Gani API server running! Client files will build on startup.');
