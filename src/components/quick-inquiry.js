@@ -48,7 +48,7 @@ export function createQuickInquiry() {
             <label for="quick-service" class="form-label">Target Service Category</label>
             <select id="quick-service" class="form-input form-select" required>
               <option value="" disabled selected>Select equipment/supply type</option>
-              ${services.map(s => `<option value="${s.name}">${s.name}</option>`).join('')}
+              ${services.map(s => `<option value="${s.slug}">${s.name}</option>`).join('')}
             </select>
           </div>
 
@@ -135,7 +135,11 @@ export function createQuickInquiry() {
     const name = container.querySelector('#quick-name')?.value;
     const phone = container.querySelector('#quick-phone')?.value;
     const email = container.querySelector('#quick-email')?.value;
-    const service = container.querySelector('#quick-service')?.value;
+    const serviceSelect = container.querySelector('#quick-service');
+    const service = serviceSelect?.value;
+    const productName = serviceSelect?.selectedIndex > 0
+      ? serviceSelect.options[serviceSelect.selectedIndex].text
+      : '';
     const message = container.querySelector('#quick-message')?.value;
 
     // Show status container with spinner
@@ -149,8 +153,9 @@ export function createQuickInquiry() {
         name,
         email,
         phone: phone || null,
-        subject: `Quick B2B Callback Request [${service}]`,
+        subject: `Quick B2B Callback Request [${productName || service}]`,
         service: service || null,
+        productName: productName || null,
         location: 'Kashmir/Leh Regional Office',
         message: `Corporate Email: ${email}\nWhatsApp/Phone: ${phone}\n\nClient Requirements:\n${message}`,
         status: 'pending',

@@ -53,7 +53,7 @@ export function renderHome() {
           Serving Kashmir & the Leh Region with Premium Quality,<br>
           Regional Reach & Unwavering Trust.
         </p>
-        <div class="theme-toggle-wrap animate-on-scroll" style="margin-bottom: 28px;">
+        <div class="theme-toggle-wrap animate-on-scroll" style="margin-bottom: 48px;">
           <button class="theme-toggle-btn" id="hero-theme-toggle" aria-label="Toggle Light/Dark Mode">
             <div class="toggle-track">
               <span class="toggle-text-left">Dark</span>
@@ -696,30 +696,7 @@ export async function initHome() {
     startSlideShow();
   }
 
-  // 7. FAQ Accordions
-  const faqItems = document.querySelectorAll('.faq-item');
-  faqItems.forEach(item => {
-    const trigger = item.querySelector('.faq-trigger');
-    const content = item.querySelector('.faq-content');
-    
-    trigger?.addEventListener('click', () => {
-      const isOpen = item.classList.contains('open');
-      
-      // Close all items first for a clean single-open accordion feel
-      faqItems.forEach(i => {
-        i.classList.remove('open');
-        const cnt = i.querySelector('.faq-content');
-        if (cnt) cnt.style.maxHeight = null;
-      });
 
-      if (!isOpen) {
-        item.classList.add('open');
-        if (content) {
-          content.style.maxHeight = content.scrollHeight + 'px';
-        }
-      }
-    });
-  });
 
   // Re-initialize intersection observers for the dynamically added elements
   const observer = new IntersectionObserver((entries) => {

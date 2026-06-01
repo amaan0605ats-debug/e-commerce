@@ -77,7 +77,7 @@ export function createFooter() {
                 <span class="footer-contact-icon">✉️</span>
                 <div>
                   <span class="footer-contact-label">Email</span>
-                  <span class="footer-contact-value footer-email"><a href="mailto:Alganigeneralsupliers@gmail.com" style="color: inherit; text-decoration: none;">Alganigeneralsupliers@gmail.com</a></span>
+                  <span class="footer-contact-value footer-email"><a href="mailto:alganigeneralsupplier@gmail.com" style="color: inherit; text-decoration: none;">alganigeneralsupplier@gmail.com</a></span>
                 </div>
               </li>
               <li>

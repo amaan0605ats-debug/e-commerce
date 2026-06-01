@@ -57,17 +57,8 @@ export function renderAbout() {
           </div>
 
           <div class="about-sidebar animate-on-scroll">
-            <div class="about-quote-box">
-              <div class="quote-mark">"</div>
-              <p>Every product we carry, every partnership we build, carries the weight of Kashmir's name — and that is a responsibility we take seriously.</p>
-              <cite>
-                <span>— Syed Mir Aftab</span>
-                <span class="cite-title">Managing Director</span>
-              </cite>
-              <cite style="margin-top: 8px;">
-                <span>— Mohammad Ayoub Bhat</span>
-                <span class="cite-title">Director</span>
-              </cite>
+            <div class="about-sidebar-image-container">
+              <img src="/images/about_sidebar_graphic.png" alt="Al Gani Supply Chain and Logistics" class="about-sidebar-img-only">
             </div>
           </div>
 

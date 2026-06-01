@@ -2019,7 +2019,7 @@ export function initAdmin() {
     if (s === 'rejected') return '"Archived/Declined"';
     if (s === 'new') return '"New Route Ordered"';
     if (s === 'approved') return '"Approved Delivery"';
-    if (s === 'shipped') return '"Shipped & Fulfilled"';
+    if (s === 'shipped' || s === 'delivered') return '"Delivered"';
     return `"${status.charAt(0).toUpperCase() + status.slice(1)}"`;
   };
 
@@ -2184,7 +2184,7 @@ function renderOrdersTable(orders) {
           
           let statusBadge = `<span class="pill-status pill-pending">new</span>`;
           if (order.status === 'approved') statusBadge = `<span class="pill-status pill-active">Active</span>`;
-          if (order.status === 'shipped') statusBadge = `<span class="pill-status pill-delivered">Delivered</span>`;
+          if (order.status === 'shipped' || order.status === 'delivered') statusBadge = `<span class="pill-status pill-delivered">Delivered</span>`;
 
           return `
             <tr>
@@ -2196,7 +2196,7 @@ function renderOrdersTable(orders) {
               <td style="display:flex; gap:8px; align-items:center;">
                 ${order.status === 'new' ? `<button class="admin-action-sm admin-approve-btn" data-id="${order.id}">Approve</button>` : ''}
                 ${order.status === 'approved' ? `<button class="admin-action-sm admin-ship-btn" data-id="${order.id}">Ship</button>` : ''}
-                ${order.status === 'shipped' ? `<span style="font-size:12px; color:#7deca0;">✓ Complete</span>` : ''}
+                ${(order.status === 'shipped' || order.status === 'delivered') ? `<span style="font-size:12px; color:#7deca0;">✓ Complete</span>` : ''}
               </td>
             </tr>
           `;
@@ -2216,7 +2216,7 @@ function renderOrdersTable(orders) {
   });
   document.querySelectorAll('.admin-ship-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await updateDoc(doc(db, 'orders', btn.dataset.id), { status: 'shipped', updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, 'orders', btn.dataset.id), { status: 'delivered', updatedAt: serverTimestamp() });
     });
   });
 }
@@ -2517,7 +2517,7 @@ function renderInquiries(msgs) {
                 <button class="admin-action-sm admin-inquiry-reject-btn" data-id="${selectedMsg.id}" style="color:#ff6b6b; background:rgba(255,107,107,0.1); border:none; padding:8px 16px; font-weight:600; border-radius: 4px; cursor:pointer;">Reject</button>
               ` : `
                 <span style="font-size: 12px; font-weight: 600; padding: 6px 12px; background: rgba(251,243,227,0.05); border-radius: 4px; color: ${selectedMsg.convertedToOrder ? '#7deca0' : (selectedMsg.status === 'accepted' ? '#7deca0' : (selectedMsg.status === 'rejected' ? '#ff6b6b' : 'rgba(251,243,227,0.5)'))};">
-                  ${selectedMsg.convertedToOrder ? '🚚 Accepted & In Delivery' : (selectedMsg.status === 'accepted' ? '✓ Accepted' : (selectedMsg.status === 'rejected' ? '✗ Rejected' : 'Read'))}
+                  ${selectedMsg.status === 'delivered' ? '✓ Delivered' : (selectedMsg.convertedToOrder ? '🚚 Accepted & In Delivery' : (selectedMsg.status === 'accepted' ? '✓ Accepted' : (selectedMsg.status === 'rejected' ? '✗ Rejected' : 'Read')))}
                 </span>
               `}
             </div>
@@ -2659,7 +2659,7 @@ function renderInquiries(msgs) {
         if (!msg) return;
         
         try {
-          const svc = services.find(s => s.slug === msg.service) || { slug: msg.service || 'interior-paneling' };
+          const svc = services.find(s => s.slug === msg.service) || { slug: msg.service || 'interior-paneling', name: msg.productName || msg.service };
           
           await addDoc(collection(db, 'orders'), {
             clientName: msg.name || 'B2B Client',
@@ -2667,6 +2667,9 @@ function renderInquiries(msgs) {
             region: msg.location || 'Kashmir Valley',
             notes: `Auto-converted B2B Inquiry: "${msg.message.substring(0, 120)}..."`,
             status: 'new',
+            inquiryId: msg.id,
+            customerEmail: msg.email,
+            productName: msg.productName || svc.name,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
           });

@@ -31,6 +31,11 @@ Welcome to the **Al Gani** B2B Supply Chain & Catalog Platform. This is a high-f
 4. **🛡️ Image Resiliency Systems:**
    * Automated, context-aware image placeholder fallbacks across the client to prevent broken image grids under slow or dropping internet connections.
 
+5. **📧 Order Management & Email Notifications:**
+   * Contact / quick-inquiry forms create an inquiry with status **pending** and email: *"We have received your request for [Product Name]."*
+   * Admin **Accept** sets status **accepted** and emails: *"Your order for [Product Name] has been accepted!"*
+   * Admin **Delivered** (Deliveries tab, after convert) sets status **delivered** and emails: *"Your order for [Product Name] has been delivered!"*
+
 ---
 
 ## 🚀 Getting Started Locally
@@ -47,6 +52,14 @@ DB_USER=root
 DB_PASSWORD=yourpassword
 DB_NAME=algani_db
 JWT_SECRET=supersecretkey
+
+# SMTP — automated order status emails (Gmail, SendGrid, etc.)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM="Al Gani General Suppliers <your-email@gmail.com>"
 ```
 
 ### 3. Installation

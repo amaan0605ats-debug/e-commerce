@@ -124,27 +124,23 @@ async function initDatabase() {
 async function seedDatabase() {
   try {
     // A. Seed default administrator credentials
-    const [adminRows] = await pool.query('SELECT COUNT(*) as count FROM admins');
-    if (adminRows[0].count === 0) {
-      console.log('Seeding default administrator credentials...');
-      
-      const admin1Email = process.env.ADMIN_EMAIL_1 || 'admin1@algani.com';
-      const admin1Pass = process.env.ADMIN_PASSWORD_1 || 'admin123';
-      const admin1Name = process.env.ADMIN_NAME_1 || 'Syed Mir Aftab';
-      
-      const admin2Email = process.env.ADMIN_EMAIL_2 || 'admin2@algani.com';
-      const admin2Pass = process.env.ADMIN_PASSWORD_2 || 'admin123';
-      const admin2Name = process.env.ADMIN_NAME_2 || 'Mohammad Ayoub Bhat';
+    // Clear out any legacy admin credentials whose email is not aftab@algani
+    await pool.query('DELETE FROM admins WHERE email != ?', ['aftab@algani']);
 
-      const hashedPassword1 = bcrypt.hashSync(admin1Pass, 10);
-      const hashedPassword2 = bcrypt.hashSync(admin2Pass, 10);
+    // Check if aftab@algani exists
+    const [adminRows] = await pool.query('SELECT COUNT(*) as count FROM admins WHERE email = ?', ['aftab@algani']);
+    if (adminRows[0].count === 0) {
+      console.log('Seeding default administrator credentials for aftab@algani...');
+      
+      const adminEmail = 'aftab@algani';
+      const adminPass = process.env.ADMIN_PASSWORD_1 || 'admin123';
+      const adminName = 'Syed Mir Aftab';
+      
+      const hashedPassword = bcrypt.hashSync(adminPass, 10);
       
       await pool.query(
-        'INSERT INTO admins (id, email, password, displayName) VALUES (?, ?, ?, ?), (?, ?, ?, ?)',
-        [
-          'admin-1', admin1Email, hashedPassword1, admin1Name,
-          'admin-2', admin2Email, hashedPassword2, admin2Name
-        ]
+        'INSERT INTO admins (id, email, password, displayName) VALUES (?, ?, ?, ?)',
+        ['admin-1', adminEmail, hashedPassword, adminName]
       );
     }
 
@@ -286,6 +282,10 @@ app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  if (email !== 'aftab@algani') {
+    return res.status(401).json({ code: 'auth/user-not-found', error: 'No account found with this email.' });
   }
 
   try {

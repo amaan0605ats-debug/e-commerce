@@ -66,7 +66,7 @@ export function renderContact() {
                 </div>
                 <div class="contact-item-content">
                   <div class="contact-item-label">Email</div>
-                  <div class="contact-item-value"><a href="mailto:Alganigeneralsupliers@gmail.com" style="color: inherit; text-decoration: none;">Alganigeneralsupliers@gmail.com</a></div>
+                  <div class="contact-item-value"><a href="mailto:alganigeneralsupplier@gmail.com" style="color: inherit; text-decoration: none;">alganigeneralsupplier@gmail.com</a></div>
                 </div>
               </div>
 
@@ -220,6 +220,7 @@ export function initContact() {
         phone: phone || null,
         subject: subject,
         service: service || null,
+        productName: serviceName || null,
         location: location || null,
         message,
         status: 'pending',
@@ -262,7 +263,7 @@ export function initContact() {
       console.error('Error submitting inquiry to Firestore:', error);
 
       // Create a copyable backup and standard mailto fallback in case Firebase config is placeholder / offline
-      const mailtoUrl = `mailto:Alganigeneralsupliers@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\nPhone: ${phone}\nService: ${serviceName || 'None'}\nMessage:\n${message}`)}`;
+      const mailtoUrl = `mailto:alganigeneralsupplier@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\nPhone: ${phone}\nService: ${serviceName || 'None'}\nMessage:\n${message}`)}`;
       
       const formBox = form.closest('.contact-form-box');
       if (formBox) {

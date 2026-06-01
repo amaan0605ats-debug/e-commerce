@@ -4,6 +4,14 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 const path = require('path');
+const {
+  resolveProductName,
+  sendOrderStatusEmail,
+  enqueueOrderStatusEmail,
+  slugToDisplayName,
+  isEmailConfigured,
+  verifySmtpConnection,
+} = require('./lib/emailService.cjs');
 
 // Load environment variables
 dotenv.config();
@@ -187,6 +195,36 @@ async function initDatabase() {
       console.log('Successfully completed inquiries table migration: added isDeleted column.');
     } catch (err) {}
 
+    // Order management: product display name on inquiries
+    try {
+      await pool.query('ALTER TABLE inquiries ADD COLUMN productName VARCHAR(255) DEFAULT ""');
+      console.log('Successfully completed inquiries table migration: added productName column.');
+    } catch (err) {}
+
+    // Order management: link deliveries back to customer inquiries
+    try {
+      await pool.query('ALTER TABLE orders ADD COLUMN inquiryId VARCHAR(255) DEFAULT NULL');
+    } catch (err) {}
+    try {
+      await pool.query('ALTER TABLE orders ADD COLUMN customerEmail VARCHAR(255) DEFAULT ""');
+    } catch (err) {}
+    try {
+      await pool.query('ALTER TABLE orders ADD COLUMN productName VARCHAR(255) DEFAULT ""');
+    } catch (err) {}
+
+    if (isEmailConfigured()) {
+      const smtpCheck = await verifySmtpConnection();
+      if (smtpCheck.ok) {
+        console.log('✉️  SMTP connected — customer order emails will be sent.');
+      } else {
+        console.error('✉️  SMTP login failed:', smtpCheck.reason);
+        console.error('    Fix SMTP_USER / SMTP_PASS in .env (Gmail needs an App Password).');
+      }
+    } else {
+      console.warn('✉️  SMTP NOT CONFIGURED — contact/accept/delivered emails are NOT sent.');
+      console.warn('    Add SMTP_PASS (Gmail App Password) to .env and restart.');
+    }
+
     // ── DATABASE SEEDING ──
     await seedDatabase();
 
@@ -201,27 +239,23 @@ async function initDatabase() {
 async function seedDatabase() {
   try {
     // A. Seed default administrator credentials
-    const [adminRows] = await pool.query('SELECT COUNT(*) as count FROM admins');
-    if (adminRows[0].count === 0) {
-      console.log('Seeding default administrator credentials...');
-      
-      const admin1Email = process.env.ADMIN_EMAIL_1 || 'admin1@algani.com';
-      const admin1Pass = process.env.ADMIN_PASSWORD_1 || 'admin123';
-      const admin1Name = process.env.ADMIN_NAME_1 || 'Syed Mir Aftab';
-      
-      const admin2Email = process.env.ADMIN_EMAIL_2 || 'admin2@algani.com';
-      const admin2Pass = process.env.ADMIN_PASSWORD_2 || 'admin123';
-      const admin2Name = process.env.ADMIN_NAME_2 || 'Mohammad Ayoub Bhat';
+    // Clear out any legacy admin credentials whose email is not aftab@algani
+    await pool.query('DELETE FROM admins WHERE email != ?', ['aftab@algani']);
 
-      const hashedPassword1 = bcrypt.hashSync(admin1Pass, 10);
-      const hashedPassword2 = bcrypt.hashSync(admin2Pass, 10);
+    // Check if aftab@algani exists
+    const [adminRows] = await pool.query('SELECT COUNT(*) as count FROM admins WHERE email = ?', ['aftab@algani']);
+    if (adminRows[0].count === 0) {
+      console.log('Seeding default administrator credentials for aftab@algani...');
+      
+      const adminEmail = 'aftab@algani';
+      const adminPass = process.env.ADMIN_PASSWORD_1 || 'admin123';
+      const adminName = 'Syed Mir Aftab';
+      
+      const hashedPassword = bcrypt.hashSync(adminPass, 10);
       
       await pool.query(
-        'INSERT INTO admins (id, email, password, displayName) VALUES (?, ?, ?, ?), (?, ?, ?, ?)',
-        [
-          'admin-1', admin1Email, hashedPassword1, admin1Name,
-          'admin-2', admin2Email, hashedPassword2, admin2Name
-        ]
+        'INSERT INTO admins (id, email, password, displayName) VALUES (?, ?, ?, ?)',
+        ['admin-1', adminEmail, hashedPassword, adminName]
       );
     }
 
@@ -511,6 +545,10 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
+  if (email !== 'aftab@algani') {
+    return res.status(401).json({ code: 'auth/user-not-found', error: 'No account found with this email.' });
+  }
+
   try {
     const [rows] = await pool.query('SELECT * FROM admins WHERE email = ?', [email]);
     if (rows.length === 0) {
@@ -597,9 +635,9 @@ app.get('/api/inquiries', async (req, res) => {
   }
 });
 
-// 3. Submit Customer Inquiry
+// 3. Submit Customer Inquiry (order request — status: pending)
 app.post('/api/inquiries', async (req, res) => {
-  const { name, email, phone, subject, service, location, message } = req.body;
+  const { name, email, phone, subject, service, location, message, productName } = req.body;
   if (!name || !email || !message) {
     return res.status(400).json({ error: 'Name, email, and message are required' });
   }
@@ -607,17 +645,44 @@ app.post('/api/inquiries', async (req, res) => {
   try {
     const id = 'inq-' + Math.random().toString(36).substr(2, 9);
     const createdAt = new Date().toISOString();
-    
+    const storedProductName =
+      (productName && String(productName).trim()) || slugToDisplayName(service);
+
     await pool.query(
-      'INSERT INTO inquiries (id, name, email, phone, subject, service, location, message, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, name, email, phone || '', subject || '', service || '', location || '', message, 'pending', createdAt]
+      'INSERT INTO inquiries (id, name, email, phone, subject, service, location, message, status, createdAt, productName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, name, email, phone || '', subject || '', service || '', location || '', message, 'pending', createdAt, storedProductName]
     );
 
-    if (service) {
-      await decrementInventory(service, 5);
-    }
+    res.status(201).json({
+      id,
+      name,
+      email,
+      phone,
+      subject,
+      service,
+      location,
+      message,
+      status: 'pending',
+      createdAt,
+      productName: storedProductName,
+    });
 
-    res.status(201).json({ id, name, email, phone, subject, service, location, message, status: 'pending', createdAt });
+    setImmediate(async () => {
+      if (service) {
+        try {
+          await decrementInventory(service, 5);
+        } catch (err) {
+          console.error('[inventory] decrement after inquiry failed:', err);
+        }
+      }
+      const emailProductName = await resolveProductName(pool, { slug: service, productName });
+      enqueueOrderStatusEmail({
+        to: email,
+        customerName: name,
+        productName: emailProductName,
+        statusKey: 'pending',
+      });
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to save customer inquiry' });
@@ -636,6 +701,7 @@ app.put('/api/inquiries/:id', async (req, res) => {
     }
     
     const inquiry = rows[0];
+    const previousStatus = (inquiry.status || 'pending').toLowerCase();
     const dbStatus = status !== undefined ? status : inquiry.status;
     const dbConverted = convertedToOrder !== undefined ? (convertedToOrder ? 1 : 0) : inquiry.convertedToOrder;
     const dbDeleted = isDeleted !== undefined ? (isDeleted ? 1 : 0) : inquiry.isDeleted;
@@ -644,7 +710,24 @@ app.put('/api/inquiries/:id', async (req, res) => {
       'UPDATE inquiries SET status = ?, convertedToOrder = ?, isDeleted = ? WHERE id = ?',
       [dbStatus, dbConverted, dbDeleted, id]
     );
+
     res.json({ success: true, id, status: dbStatus, convertedToOrder: dbConverted, isDeleted: dbDeleted });
+
+    if (dbStatus === 'accepted' && previousStatus !== 'accepted') {
+      const inquirySnapshot = { ...inquiry };
+      setImmediate(async () => {
+        const resolvedProductName = await resolveProductName(pool, {
+          slug: inquirySnapshot.service,
+          productName: inquirySnapshot.productName,
+        });
+        enqueueOrderStatusEmail({
+          to: inquirySnapshot.email,
+          customerName: inquirySnapshot.name,
+          productName: resolvedProductName,
+          statusKey: 'accepted',
+        });
+      });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update inquiry' });
@@ -664,7 +747,15 @@ app.get('/api/orders', async (req, res) => {
 
 // 6. Schedule New Delivery Order
 app.post('/api/orders', async (req, res) => {
-  const { clientName, service, region, notes } = req.body;
+  const {
+    clientName,
+    service,
+    region,
+    notes,
+    inquiryId,
+    customerEmail,
+    productName,
+  } = req.body;
   if (!clientName || !service || !region) {
     return res.status(400).json({ error: 'Client name, service slug, and operating region are required' });
   }
@@ -672,32 +763,131 @@ app.post('/api/orders', async (req, res) => {
   try {
     const id = 'ord-' + Math.random().toString(36).substr(2, 9);
     const createdAt = new Date().toISOString();
+    const resolvedProductName = await resolveProductName(pool, { slug: service, productName });
     
     await pool.query(
-      'INSERT INTO orders (id, clientName, service, region, notes, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, clientName, service, region, notes || '', 'new', createdAt, createdAt]
+      'INSERT INTO orders (id, clientName, service, region, notes, status, createdAt, updatedAt, inquiryId, customerEmail, productName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        clientName,
+        service,
+        region,
+        notes || '',
+        'new',
+        createdAt,
+        createdAt,
+        inquiryId || null,
+        customerEmail || '',
+        resolvedProductName,
+      ]
     );
 
     if (service) {
       await decrementInventory(service, 10);
     }
 
-    res.status(201).json({ id, clientName, service, region, notes, status: 'new', createdAt, updatedAt: createdAt });
+    res.status(201).json({
+      id,
+      clientName,
+      service,
+      region,
+      notes,
+      status: 'new',
+      createdAt,
+      updatedAt: createdAt,
+      inquiryId: inquiryId || null,
+      customerEmail: customerEmail || '',
+      productName: resolvedProductName,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to schedule delivery order' });
   }
 });
 
+// Resolve customer email/name and product label for delivery order notifications
+async function resolveOrderCustomerContext(pool, order) {
+  let customerEmail = order.customerEmail;
+  let customerName = order.clientName;
+  let productName = order.productName;
+
+  if (order.inquiryId) {
+    const [inqRows] = await pool.query('SELECT * FROM inquiries WHERE id = ?', [order.inquiryId]);
+    if (inqRows.length > 0) {
+      const inq = inqRows[0];
+      customerEmail = customerEmail || inq.email;
+      customerName = customerName || inq.name;
+      productName = productName || inq.productName;
+    }
+  }
+
+  const resolvedProductName = await resolveProductName(pool, {
+    slug: order.service,
+    productName,
+  });
+
+  return { customerEmail, customerName, productName: resolvedProductName };
+}
+
 // 7. Update Delivery Order Fulfillment Status
 app.put('/api/orders/:id', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   const updatedAt = new Date().toISOString();
+  const deliveryStatuses = new Set(['delivered', 'shipped']);
 
   try {
+    const [rows] = await pool.query('SELECT * FROM orders WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const order = rows[0];
+    const previousStatus = (order.status || '').toLowerCase();
+    const nextStatus = (status || '').toLowerCase();
+
     await pool.query('UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?', [status, updatedAt, id]);
+
     res.json({ success: true, id, status, updatedAt });
+
+    const orderSnapshot = { ...order };
+    const shouldApprove = nextStatus === 'approved' && previousStatus !== 'approved';
+    const shouldDeliver =
+      deliveryStatuses.has(nextStatus) && !deliveryStatuses.has(previousStatus);
+
+    if (shouldApprove || shouldDeliver) {
+      setImmediate(async () => {
+        try {
+          const customerCtx = await resolveOrderCustomerContext(pool, orderSnapshot);
+
+          if (shouldApprove) {
+            enqueueOrderStatusEmail({
+              to: customerCtx.customerEmail,
+              customerName: customerCtx.customerName,
+              productName: customerCtx.productName,
+              statusKey: 'approved',
+            });
+          }
+
+          if (shouldDeliver) {
+            if (orderSnapshot.inquiryId) {
+              await pool.query('UPDATE inquiries SET status = ? WHERE id = ?', [
+                'delivered',
+                orderSnapshot.inquiryId,
+              ]);
+            }
+            enqueueOrderStatusEmail({
+              to: customerCtx.customerEmail,
+              customerName: customerCtx.customerName,
+              productName: customerCtx.productName,
+              statusKey: 'delivered',
+            });
+          }
+        } catch (err) {
+          console.error('[email] Order notification background task failed:', err);
+        }
+      });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update delivery status' });

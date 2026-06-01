@@ -117,6 +117,16 @@ export function createNavbar() {
     accordionTrigger.classList.toggle('open');
   });
 
+  // Logo click behavior (Scroll to top if already at Home)
+  const logo = nav.querySelector('#nav-logo');
+  logo?.addEventListener('click', (e) => {
+    const hash = window.location.hash || '#/';
+    if (hash === '#/' || hash === '#') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+
   // Scroll behavior for navbar
   let lastScroll = 0;
   window.addEventListener('scroll', () => {
