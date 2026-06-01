@@ -28,12 +28,15 @@ function parseDbConfig() {
   const rawUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
   if (rawUrl && /^mysql2?:\/\//i.test(rawUrl)) {
     const url = new URL(rawUrl);
+    const database =
+      decodeURIComponent(url.pathname.replace(/^\//, '').split('/')[0] || '') ||
+      'algani_db';
     return {
       host: url.hostname,
-      port: parseInt(url.port || '3306', 10),
+      port: parseInt(url.port || '4000', 10),
       user: decodeURIComponent(url.username),
       password: decodeURIComponent(url.password),
-      database: decodeURIComponent(url.pathname.replace(/^\//, '')),
+      database,
       isManaged: true,
     };
   }
@@ -117,8 +120,10 @@ async function initDatabase() {
       database: dbConfig.database,
       ssl,
       waitForConnections: true,
-      connectionLimit: 10,
+      connectionLimit: dbConfig.isManaged ? 5 : 10,
       queueLimit: 0,
+      connectTimeout: 20000,
+      enableKeepAlive: true,
     });
 
     console.log('Connected to MySQL pool. Initializing tables...');
