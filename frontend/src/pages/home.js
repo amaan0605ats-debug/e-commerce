@@ -7,12 +7,6 @@ export function renderHome() {
     <section class="hero" id="hero-section">
       <div class="hero-bg-image hero-day-bg" style="background-image: url('/images/hero-day.jpg');"></div>
       <div class="hero-bg-image hero-night-bg" style="background-image: url('/images/hero-night.jpg');"></div>
-      <video class="hero-bg-video hero-bg-video--light" autoplay loop muted playsinline>
-        <source src="/images/herolight.mp4" type="video/mp4">
-      </video>
-      <video class="hero-bg-video hero-bg-video--dark" autoplay loop muted playsinline>
-        <source src="/images/herodark.mp4" type="video/mp4">
-      </video>
       <div class="hero-overlay"></div>
       <div class="hero-cinemagraph-layer">
         <!-- Shikara Boat 1 -->

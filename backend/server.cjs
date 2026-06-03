@@ -1,9 +1,20 @@
+const path = require('path');
+const dotenv = require('dotenv');
+// Load environment variables from repo root as early as possible
+const envPath = path.join(__dirname, '..', '.env');
+const dotenvResult = dotenv.config({ path: envPath });
+console.log(`[debug] Dotenv loading from: ${envPath}`);
+if (dotenvResult.error) {
+  console.error('[debug] Dotenv error:', dotenvResult.error);
+} else {
+  console.log('[debug] Dotenv loaded successfully. Keys found:', Object.keys(dotenvResult.parsed || {}));
+}
+console.log('[debug] process.env.RESEND_API_KEY exists:', Boolean(process.env.RESEND_API_KEY));
+
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
-const dotenv = require('dotenv');
-const path = require('path');
 const {
   resolveProductName,
   sendOrderStatusEmail,
@@ -13,8 +24,7 @@ const {
   verifySmtpConnection,
 } = require('./lib/emailService.cjs');
 
-// Load environment variables from repo root
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
 
 const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
 
@@ -304,14 +314,14 @@ async function initDatabase() {
     if (isEmailConfigured()) {
       const smtpCheck = await verifySmtpConnection();
       if (smtpCheck.ok) {
-        console.log('✉️  SMTP connected — customer order emails will be sent.');
+        console.log('✉️  Resend email client connected — customer order emails will be sent.');
       } else {
-        console.error('✉️  SMTP login failed:', smtpCheck.reason);
-        console.error('    Fix SMTP_USER / SMTP_PASS in .env (Gmail needs an App Password).');
+        console.error('✉️  Resend connection failed:', smtpCheck.reason);
+        console.error('    Check your RESEND_API_KEY in .env.');
       }
     } else {
-      console.warn('✉️  SMTP NOT CONFIGURED — contact/accept/delivered emails are NOT sent.');
-      console.warn('    Add SMTP_PASS (Gmail App Password) to .env and restart.');
+      console.warn('✉️  RESEND EMAIL NOT CONFIGURED — customer order/inquiry emails are NOT sent.');
+      console.warn('    Add RESEND_API_KEY to your .env file and restart the server.');
     }
 
     // ── DATABASE SEEDING ──
@@ -746,6 +756,22 @@ app.post('/api/inquiries', async (req, res) => {
       [id, name, email, phone || '', subject || '', service || '', location || '', message, 'pending', createdAt, storedProductName]
     );
 
+    if (service) {
+      try {
+        await decrementInventory(service, 5);
+      } catch (err) {
+        console.error('[inventory] decrement after inquiry failed:', err);
+      }
+    }
+    
+    const emailProductName = await resolveProductName(pool, { slug: service, productName });
+    await sendOrderStatusEmail({
+      to: email,
+      customerName: name,
+      productName: emailProductName,
+      statusKey: 'pending',
+    });
+
     res.status(201).json({
       id,
       name,
@@ -758,23 +784,6 @@ app.post('/api/inquiries', async (req, res) => {
       status: 'pending',
       createdAt,
       productName: storedProductName,
-    });
-
-    setImmediate(async () => {
-      if (service) {
-        try {
-          await decrementInventory(service, 5);
-        } catch (err) {
-          console.error('[inventory] decrement after inquiry failed:', err);
-        }
-      }
-      const emailProductName = await resolveProductName(pool, { slug: service, productName });
-      enqueueOrderStatusEmail({
-        to: email,
-        customerName: name,
-        productName: emailProductName,
-        statusKey: 'pending',
-      });
     });
   } catch (err) {
     console.error(err);
@@ -804,23 +813,20 @@ app.put('/api/inquiries/:id', async (req, res) => {
       [dbStatus, dbConverted, dbDeleted, id]
     );
 
-    res.json({ success: true, id, status: dbStatus, convertedToOrder: dbConverted, isDeleted: dbDeleted });
-
     if (dbStatus === 'accepted' && previousStatus !== 'accepted') {
-      const inquirySnapshot = { ...inquiry };
-      setImmediate(async () => {
-        const resolvedProductName = await resolveProductName(pool, {
-          slug: inquirySnapshot.service,
-          productName: inquirySnapshot.productName,
-        });
-        enqueueOrderStatusEmail({
-          to: inquirySnapshot.email,
-          customerName: inquirySnapshot.name,
-          productName: resolvedProductName,
-          statusKey: 'accepted',
-        });
+      const resolvedProductName = await resolveProductName(pool, {
+        slug: inquiry.service,
+        productName: inquiry.productName,
+      });
+      await sendOrderStatusEmail({
+        to: inquiry.email,
+        customerName: inquiry.name,
+        productName: resolvedProductName,
+        statusKey: 'accepted',
       });
     }
+
+    res.json({ success: true, id, status: dbStatus, convertedToOrder: dbConverted, isDeleted: dbDeleted });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update inquiry' });
@@ -981,46 +987,43 @@ app.put('/api/orders/:id', async (req, res) => {
 
     await pool.query('UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?', [status, updatedAt, id]);
 
-    res.json({ success: true, id, status, updatedAt });
-
-    const orderSnapshot = { ...order };
     const shouldApprove = nextStatus === 'approved' && previousStatus !== 'approved';
     const shouldDeliver =
       deliveryStatuses.has(nextStatus) && !deliveryStatuses.has(previousStatus);
 
     if (shouldApprove || shouldDeliver) {
-      setImmediate(async () => {
-        try {
-          const customerCtx = await resolveOrderCustomerContext(pool, orderSnapshot);
+      try {
+        const customerCtx = await resolveOrderCustomerContext(pool, order);
 
-          if (shouldApprove) {
-            enqueueOrderStatusEmail({
-              to: customerCtx.customerEmail,
-              customerName: customerCtx.customerName,
-              productName: customerCtx.productName,
-              statusKey: 'approved',
-            });
-          }
-
-          if (shouldDeliver) {
-            if (orderSnapshot.inquiryId) {
-              await pool.query('UPDATE inquiries SET status = ? WHERE id = ?', [
-                'delivered',
-                orderSnapshot.inquiryId,
-              ]);
-            }
-            enqueueOrderStatusEmail({
-              to: customerCtx.customerEmail,
-              customerName: customerCtx.customerName,
-              productName: customerCtx.productName,
-              statusKey: 'delivered',
-            });
-          }
-        } catch (err) {
-          console.error('[email] Order notification background task failed:', err);
+        if (shouldApprove) {
+          await sendOrderStatusEmail({
+            to: customerCtx.customerEmail,
+            customerName: customerCtx.customerName,
+            productName: customerCtx.productName,
+            statusKey: 'approved',
+          });
         }
-      });
+
+        if (shouldDeliver) {
+          if (order.inquiryId) {
+            await pool.query('UPDATE inquiries SET status = ? WHERE id = ?', [
+              'delivered',
+              order.inquiryId,
+            ]);
+          }
+          await sendOrderStatusEmail({
+            to: customerCtx.customerEmail,
+            customerName: customerCtx.customerName,
+            productName: customerCtx.productName,
+            statusKey: 'delivered',
+          });
+        }
+      } catch (err) {
+        console.error('[email] Order notification task failed:', err);
+      }
     }
+
+    res.json({ success: true, id, status, updatedAt });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update delivery status' });

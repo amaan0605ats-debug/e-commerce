@@ -3933,13 +3933,14 @@ body[data-theme="dark"] .section-title em {
   background: rgba(26,12,3,0.95);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(200,146,42,0.1);
-  z-index: 90;
+  z-index: 1050 !important;
   align-items: center;
   padding: 0 16px;
   gap: 12px;
 }
 .admin-mobile-toggle {
   background: none; border: none; color: var(--cream); cursor: pointer; padding: 4px;
+  flex-shrink: 0;
 }
 .admin-mobile-title {
   font-family: var(--font-ui);
@@ -3947,6 +3948,9 @@ body[data-theme="dark"] .section-title em {
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gold-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* MAIN */
@@ -4304,7 +4308,8 @@ body[data-theme="dark"] .section-title em {
   .admin-sidebar {
     transform: translateX(-100%);
     width: 260px;
-    z-index: 110;
+    z-index: 1100 !important;
+    transition: transform 0.3s ease;
   }
   .admin-sidebar.open { transform: translateX(0); box-shadow: 8px 0 40px rgba(0,0,0,0.5); }
   .admin-mobile-header { display: flex; }

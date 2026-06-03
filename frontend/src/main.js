@@ -9,7 +9,7 @@ import { renderService, renderServicesIndex, initServicesIndex, initServiceDetai
 import { renderContact, initContact } from './pages/contact.js';
 import { renderAdminLogin, initAdminLogin } from './pages/admin-login.js';
 import { renderAdmin, initAdmin, cleanupAdmin } from './pages/admin.js';
-import { auth, onAuthStateChanged, db, collection, addDoc, serverTimestamp } from './firebase.js';
+import { auth, onAuthStateChanged } from './firebase.js';
 import { services, serviceCategories } from './data/services.js';
 
 // ── GLOBAL THEME INITIALIZATION ──
