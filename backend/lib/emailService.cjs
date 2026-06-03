@@ -58,12 +58,14 @@ function getTransporter() {
     port,
     secure,
     auth: { user, pass },
+    // Force IPv4 — Render's outbound IPv6 connectivity is unreliable
+    family: 4,
     pool: true,
     maxConnections: 5,
     maxMessages: 250,
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 12000,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
   });
 
   return transporter;
