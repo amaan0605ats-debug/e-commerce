@@ -1,74 +1,45 @@
-const nodemailer = require('nodemailer');
+/**
+ * emailService.cjs — Al Gani transactional email via Resend
+ *
+ * Why Resend instead of nodemailer + Gmail SMTP?
+ * Render's free tier blocks outbound TCP on ports 25, 465, and 587 (SMTP).
+ * Resend sends over HTTPS (port 443), which is never blocked.
+ *
+ * Setup:
+ *  1. Sign up free at https://resend.com  (3,000 emails/month free)
+ *  2. Add a "Sending Domain" (or use their shared domain onboarding.resend.dev for testing)
+ *  3. Create an API key and paste it into Render → Environment → RESEND_API_KEY
+ *  4. Set RESEND_FROM to e.g.  "Al Gani <noreply@yourdomain.com>"
+ *     (For testing with the shared domain use:  "Al Gani <onboarding@resend.dev>")
+ */
 
-let transporter = null;
+const { Resend } = require('resend');
+
+let resend = null;
 
 function readEnv(key, fallback = '') {
   const v = process.env[key];
   return v !== undefined && v !== null && String(v).trim() !== '' ? String(v).trim() : fallback;
 }
 
-function getSmtpConfig() {
-  const user =
-    readEnv('SMTP_USER') ||
-    readEnv('MAIL_USER') ||
-    readEnv('EMAIL_USER');
-
-  const pass =
-    readEnv('SMTP_PASS') ||
-    readEnv('SMTP_PASSWORD') ||
-    readEnv('MAIL_PASSWORD') ||
-    readEnv('EMAIL_PASSWORD');
-
-  const host =
-    readEnv('SMTP_HOST') ||
-    readEnv('MAIL_HOST') ||
-    (user && user.includes('@gmail.com') ? 'smtp.gmail.com' : '');
-
-  const port = parseInt(
-    readEnv('SMTP_PORT') || readEnv('MAIL_PORT') || '587',
-    10
-  );
-
-  const secure =
-    readEnv('SMTP_SECURE') === 'true' ||
-    readEnv('MAIL_SECURE') === 'true' ||
-    port === 465;
-
-  const from =
-    readEnv('SMTP_FROM') ||
-    readEnv('MAIL_FROM') ||
-    (user ? `"Al Gani General Suppliers" <${user}>` : '');
-
-  return { host, port, secure, user, pass, from };
-}
-
 function isEmailConfigured() {
-  const { host, user, pass } = getSmtpConfig();
-  return Boolean(host && user && pass);
+  return Boolean(readEnv('RESEND_API_KEY'));
 }
 
-function getTransporter() {
-  if (!isEmailConfigured()) return null;
-  if (transporter) return transporter;
+function getResendClient() {
+  if (resend) return resend;
+  const apiKey = readEnv('RESEND_API_KEY');
+  if (!apiKey) return null;
+  resend = new Resend(apiKey);
+  return resend;
+}
 
-  const { host, port, secure, user, pass } = getSmtpConfig();
-
-  transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-    // Force IPv4 — Render's outbound IPv6 connectivity is unreliable
-    family: 4,
-    pool: true,
-    maxConnections: 5,
-    maxMessages: 250,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-  });
-
-  return transporter;
+function getFromAddress() {
+  return (
+    readEnv('RESEND_FROM') ||
+    readEnv('EMAIL_FROM') ||
+    'Al Gani General Suppliers <onboarding@resend.dev>'
+  );
 }
 
 /** Fire-and-forget: respond to HTTP immediately, send mail on next tick */
@@ -82,16 +53,10 @@ function enqueueOrderStatusEmail(payload) {
 
 async function verifySmtpConnection() {
   if (!isEmailConfigured()) {
-    return { ok: false, reason: 'smtp-not-configured' };
+    return { ok: false, reason: 'resend-not-configured' };
   }
-  try {
-    const transport = getTransporter();
-    await transport.verify();
-    return { ok: true };
-  } catch (err) {
-    transporter = null;
-    return { ok: false, reason: err.message };
-  }
+  // Resend has no "verify" step — just confirm the key is present
+  return { ok: true };
 }
 
 function slugToDisplayName(slug) {
@@ -127,49 +92,85 @@ async function resolveProductName(pool, { slug, productName }) {
 const TEMPLATES = {
   pending: {
     subject: (productName) => `Request received — ${productName}`,
-    text: (name, productName) =>
-      `Hello${name ? ` ${name}` : ''},\n\nWe have received your request for ${productName}.\n\nOur team will review it and get back to you shortly.\n\nThank you,\nAl Gani General Suppliers`,
-    html: (name, productName) =>
-      `<p>Hello${name ? ` ${name}` : ''},</p>
-       <p>We have received your request for <strong>${productName}</strong>.</p>
-       <p>Our team will review it and get back to you shortly.</p>
-       <p>Thank you,<br><strong>Al Gani General Suppliers</strong></p>`,
+    html: (name, productName) => `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#0d0d0d;color:#e8e0cc;border-radius:12px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:32px 40px;text-align:center;">
+          <h1 style="font-size:26px;color:#e0b050;margin:0;letter-spacing:1px;">Al Gani General Suppliers</h1>
+          <p style="color:#a09070;font-size:13px;margin:6px 0 0;">Kashmir & Leh Region</p>
+        </div>
+        <div style="padding:32px 40px;">
+          <h2 style="color:#e0b050;font-size:20px;margin-top:0;">Request Received ✅</h2>
+          <p style="line-height:1.7;">Hello${name ? ` <strong>${name}</strong>` : ''},</p>
+          <p style="line-height:1.7;">We have received your request for <strong style="color:#e0b050;">${productName}</strong>.</p>
+          <p style="line-height:1.7;">Our team will review it and get back to you within 24 hours.</p>
+          <div style="border-top:1px solid #2a2a2a;margin-top:28px;padding-top:20px;font-size:13px;color:#707070;">
+            <p>Thank you for choosing Al Gani.</p>
+          </div>
+        </div>
+      </div>
+    `,
   },
   accepted: {
     subject: (productName) => `Order accepted — ${productName}`,
-    text: (name, productName) =>
-      `Hello${name ? ` ${name}` : ''},\n\nYour order for ${productName} has been accepted!\n\nWe will keep you updated as fulfillment progresses.\n\nThank you,\nAl Gani General Suppliers`,
-    html: (name, productName) =>
-      `<p>Hello${name ? ` ${name}` : ''},</p>
-       <p>Your order for <strong>${productName}</strong> has been accepted!</p>
-       <p>We will keep you updated as fulfillment progresses.</p>
-       <p>Thank you,<br><strong>Al Gani General Suppliers</strong></p>`,
+    html: (name, productName) => `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#0d0d0d;color:#e8e0cc;border-radius:12px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:32px 40px;text-align:center;">
+          <h1 style="font-size:26px;color:#e0b050;margin:0;letter-spacing:1px;">Al Gani General Suppliers</h1>
+          <p style="color:#a09070;font-size:13px;margin:6px 0 0;">Kashmir & Leh Region</p>
+        </div>
+        <div style="padding:32px 40px;">
+          <h2 style="color:#4caf50;font-size:20px;margin-top:0;">Order Accepted 🎉</h2>
+          <p style="line-height:1.7;">Hello${name ? ` <strong>${name}</strong>` : ''},</p>
+          <p style="line-height:1.7;">Your order for <strong style="color:#e0b050;">${productName}</strong> has been <strong style="color:#4caf50;">accepted!</strong></p>
+          <p style="line-height:1.7;">We will keep you updated as fulfillment progresses.</p>
+          <div style="border-top:1px solid #2a2a2a;margin-top:28px;padding-top:20px;font-size:13px;color:#707070;">
+            <p>Thank you for choosing Al Gani.</p>
+          </div>
+        </div>
+      </div>
+    `,
   },
   approved: {
     subject: (productName) => `Order approved — ${productName}`,
-    text: (name, productName) =>
-      `Hello${name ? ` ${name}` : ''},\n\nYour order for ${productName} has been approved!\n\nOur team is preparing your products for dispatch from our Srinagar hub. You will receive another update when your order is shipped.\n\nThank you,\nAl Gani General Suppliers`,
-    html: (name, productName) =>
-      `<p>Hello${name ? ` ${name}` : ''},</p>
-       <p>Your order for <strong>${productName}</strong> has been approved!</p>
-       <p>Our team is preparing your products for dispatch from our Srinagar hub. You will receive another update when your order is shipped.</p>
-       <p>Thank you,<br><strong>Al Gani General Suppliers</strong></p>`,
+    html: (name, productName) => `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#0d0d0d;color:#e8e0cc;border-radius:12px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:32px 40px;text-align:center;">
+          <h1 style="font-size:26px;color:#e0b050;margin:0;letter-spacing:1px;">Al Gani General Suppliers</h1>
+          <p style="color:#a09070;font-size:13px;margin:6px 0 0;">Kashmir & Leh Region</p>
+        </div>
+        <div style="padding:32px 40px;">
+          <h2 style="color:#e0b050;font-size:20px;margin-top:0;">Order Approved ✅</h2>
+          <p style="line-height:1.7;">Hello${name ? ` <strong>${name}</strong>` : ''},</p>
+          <p style="line-height:1.7;">Your order for <strong style="color:#e0b050;">${productName}</strong> has been <strong>approved!</strong></p>
+          <p style="line-height:1.7;">Our team is preparing your products for dispatch from our Srinagar hub. You will receive another update when your order is shipped.</p>
+          <div style="border-top:1px solid #2a2a2a;margin-top:28px;padding-top:20px;font-size:13px;color:#707070;">
+            <p>Thank you for choosing Al Gani.</p>
+          </div>
+        </div>
+      </div>
+    `,
   },
   delivered: {
     subject: (productName) => `Order delivered — ${productName}`,
-    text: (name, productName) =>
-      `Hello${name ? ` ${name}` : ''},\n\nYour order for ${productName} has been delivered!</p>\n\nThank you for choosing Al Gani.\n\nAl Gani General Suppliers`,
-    html: (name, productName) =>
-      `<p>Hello${name ? ` ${name}` : ''},</p>
-       <p>Your order for <strong>${productName}</strong> has been delivered!</p>
-       <p>Thank you for choosing Al Gani.</p>
-       <p><strong>Al Gani General Suppliers</strong></p>`,
+    html: (name, productName) => `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#0d0d0d;color:#e8e0cc;border-radius:12px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:32px 40px;text-align:center;">
+          <h1 style="font-size:26px;color:#e0b050;margin:0;letter-spacing:1px;">Al Gani General Suppliers</h1>
+          <p style="color:#a09070;font-size:13px;margin:6px 0 0;">Kashmir & Leh Region</p>
+        </div>
+        <div style="padding:32px 40px;">
+          <h2 style="color:#4caf50;font-size:20px;margin-top:0;">Order Delivered 📦</h2>
+          <p style="line-height:1.7;">Hello${name ? ` <strong>${name}</strong>` : ''},</p>
+          <p style="line-height:1.7;">Your order for <strong style="color:#e0b050;">${productName}</strong> has been <strong style="color:#4caf50;">delivered!</strong></p>
+          <p style="line-height:1.7;">Thank you for choosing Al Gani — we look forward to serving you again.</p>
+          <div style="border-top:1px solid #2a2a2a;margin-top:28px;padding-top:20px;font-size:13px;color:#707070;">
+            <p>Al Gani General Suppliers</p>
+          </div>
+        </div>
+      </div>
+    `,
   },
 };
-
-// Fix typo in delivered text template
-TEMPLATES.delivered.text = (name, productName) =>
-  `Hello${name ? ` ${name}` : ''},\n\nYour order for ${productName} has been delivered!\n\nThank you for choosing Al Gani.\n\nAl Gani General Suppliers`;
 
 /**
  * @param {'pending'|'accepted'|'approved'|'delivered'} statusKey
@@ -188,31 +189,48 @@ async function sendOrderStatusEmail({ to, customerName, productName, statusKey }
 
   if (!isEmailConfigured()) {
     console.warn(
-      `[email] NOT SENT (SMTP missing) ${statusKey} → ${to}: ${template.subject(productName)}`
+      `[email] NOT SENT (Resend not configured) ${statusKey} → ${to}: ${template.subject(productName)}`
     );
     console.warn(
-      '[email] Add SMTP_HOST, SMTP_USER, and SMTP_PASS to algani-website/.env then restart the server.'
+      '[email] Add RESEND_API_KEY to your .env / Render environment variables.'
     );
-    return { sent: false, reason: 'smtp-not-configured' };
+    return { sent: false, reason: 'resend-not-configured' };
   }
 
-  const transport = getTransporter();
-  const { from } = getSmtpConfig();
+  const client = getResendClient();
+  const from = getFromAddress();
 
   try {
-    const info = await transport.sendMail({
+    const { data, error } = await client.emails.send({
       from,
-      to,
+      to: [to],
       subject: template.subject(productName),
-      text: template.text(customerName, productName),
       html: template.html(customerName, productName),
     });
-    console.log(`[email] Sent ${statusKey} notification to ${to} (${info.messageId})`);
-    return { sent: true, messageId: info.messageId };
+
+    if (error) {
+      console.error(`[email] Resend error for ${statusKey} → ${to}:`, error);
+      return { sent: false, reason: error.message || JSON.stringify(error) };
+    }
+
+    console.log(`[email] Sent ${statusKey} notification to ${to} (id: ${data?.id})`);
+    return { sent: true, messageId: data?.id };
   } catch (err) {
     console.error(`[email] Failed to send ${statusKey} to ${to}:`, err.message);
     return { sent: false, reason: err.message };
   }
+}
+
+// Legacy compat: getSmtpConfig is referenced in server.cjs startup log
+function getSmtpConfig() {
+  return {
+    host: 'resend-api',
+    port: 443,
+    secure: true,
+    user: readEnv('RESEND_API_KEY') ? '(resend key present)' : '',
+    pass: readEnv('RESEND_API_KEY') || '',
+    from: getFromAddress(),
+  };
 }
 
 module.exports = {
