@@ -104,6 +104,27 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Temporary diagnostic: test email from Render's server
+app.get('/api/emailtest', async (req, res) => {
+  const to = req.query.to || 'amaan0605ats@gmail.com';
+  const configured = isEmailConfigured();
+  if (!configured) {
+    return res.json({ ok: false, reason: 'RESEND_API_KEY not set on this server' });
+  }
+  try {
+    const result = await sendOrderStatusEmail({
+      to,
+      customerName: 'Test User',
+      productName: 'Interior Paneling Solutions',
+      statusKey: 'pending',
+    });
+    res.json({ ok: result.sent, ...result });
+  } catch (err) {
+    res.json({ ok: false, error: err.message });
+  }
+});
+
+
 // Database connectivity verification middleware
 app.use((req, res, next) => {
   if (req.path.startsWith('/api') && req.path !== '/api/health' && !pool) {
