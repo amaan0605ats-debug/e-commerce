@@ -765,12 +765,16 @@ app.post('/api/inquiries', async (req, res) => {
     }
     
     const emailProductName = await resolveProductName(pool, { slug: service, productName });
-    await sendOrderStatusEmail({
-      to: email,
-      customerName: name,
-      productName: emailProductName,
-      statusKey: 'pending',
-    });
+    try {
+      await sendOrderStatusEmail({
+        to: email,
+        customerName: name,
+        productName: emailProductName,
+        statusKey: 'pending',
+      });
+    } catch (mailErr) {
+      console.error('[email] Failed to send customer inquiry email:', mailErr);
+    }
 
     res.status(201).json({
       id,
@@ -818,12 +822,16 @@ app.put('/api/inquiries/:id', async (req, res) => {
         slug: inquiry.service,
         productName: inquiry.productName,
       });
-      await sendOrderStatusEmail({
-        to: inquiry.email,
-        customerName: inquiry.name,
-        productName: resolvedProductName,
-        statusKey: 'accepted',
-      });
+      try {
+        await sendOrderStatusEmail({
+          to: inquiry.email,
+          customerName: inquiry.name,
+          productName: resolvedProductName,
+          statusKey: 'accepted',
+        });
+      } catch (mailErr) {
+        console.error('[email] Failed to send acceptance email:', mailErr);
+      }
     }
 
     res.json({ success: true, id, status: dbStatus, convertedToOrder: dbConverted, isDeleted: dbDeleted });
