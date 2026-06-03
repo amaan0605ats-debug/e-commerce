@@ -157,13 +157,14 @@ export function renderAdmin() {
           background: rgba(26,12,3,0.95);
           backdrop-filter: blur(12px);
           border-bottom: 1.5px solid rgba(200,146,42,0.15);
-          z-index: 99;
+          z-index: 1050 !important;
           align-items: center;
           padding: 0 24px;
           gap: 16px;
         }
         .admin-mobile-toggle {
           background: none; border: none; color: #FBF3E3; cursor: pointer; padding: 4px;
+          flex-shrink: 0;
         }
         .admin-mobile-title {
           font-family: 'Montserrat', sans-serif;
@@ -172,6 +173,9 @@ export function renderAdmin() {
           text-transform: uppercase;
           color: #E0B050;
           font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         /* Main Workspace Container */
@@ -614,7 +618,7 @@ export function renderAdmin() {
           .admin-sidebar {
             transform: translateX(-100%);
             width: 260px;
-            z-index: 110;
+            z-index: 1100 !important;
             transition: transform 0.3s ease;
           }
           .admin-sidebar.open { transform: translateX(0); box-shadow: 8px 0 40px rgba(0,0,0,0.5); }
@@ -1686,8 +1690,20 @@ export function initAdmin() {
   // Mobile sidebar toggle
   const mobileToggle = document.getElementById('admin-mobile-toggle');
   const sidebar = document.getElementById('admin-sidebar');
-  mobileToggle?.addEventListener('click', () => {
+  mobileToggle?.addEventListener('click', (e) => {
+    e.stopPropagation();
     sidebar?.classList.toggle('open');
+  });
+
+  // Close sidebar on click outside
+  document.addEventListener('click', (e) => {
+    if (window.innerWidth <= 900 && sidebar?.classList.contains('open')) {
+      const isClickInsideSidebar = sidebar.contains(e.target);
+      const isClickOnToggle = mobileToggle?.contains(e.target);
+      if (!isClickInsideSidebar && !isClickOnToggle) {
+        sidebar.classList.remove('open');
+      }
+    }
   });
 
   // Logout trigger
@@ -2699,25 +2715,32 @@ function renderInquiries(msgs) {
       });
     });
 
-    // Attach delete triggers
+    // Attach delete triggers — hard-deletes from DB, chart stats preserved server-side
     document.querySelectorAll('.admin-inquiry-delete-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (confirm("Are you sure you want to delete this B2B inquiry to clear up inbox space? (This will not affect historical reporting analytics)")) {
+        if (confirm("Delete this inquiry? It will be removed from your inbox.\n\nHistorical chart data is preserved automatically.")) {
           const id = btn.dataset.id;
+          btn.disabled = true;
+          btn.textContent = 'Deleting...';
           try {
-            await updateDoc(doc(db, 'inquiries', id), { isDeleted: true });
-            
-            // Auto-select the next active inquiry if available
-            const activeMsgs = msgs.filter(m => !m.isDeleted && m.id !== id);
-            if (activeMsgs.length > 0) {
-              selectedInquiryId = activeMsgs[0].id;
-            } else {
-              selectedInquiryId = null;
+            const res = await fetch(`/api/inquiries/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.error || `HTTP ${res.status}`);
             }
-            renderInquiries(msgs);
+            // Remove from local array and re-render
+            const idx = currentInquiries.findIndex(m => m.id === id);
+            if (idx !== -1) currentInquiries.splice(idx, 1);
+            const remaining = currentInquiries.filter(m => !m.isDeleted);
+            selectedInquiryId = remaining.length > 0 ? remaining[0].id : null;
+            renderInquiries(currentInquiries);
+            updateDashboardStats();
           } catch (err) {
             console.error('Error deleting inquiry:', err);
+            alert('Could not delete inquiry: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:2px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Delete Inquiry`;
           }
         }
       });
@@ -2769,14 +2792,15 @@ function renderInquiries(msgs) {
 }
 
 function updateDashboardStats() {
-  // 1. Active Inquiries Count
+  // 1. Active Inquiries Count — exclude hard-deleted (isDeleted flag) records
+  const visibleInquiries = currentInquiries.filter(i => !i.isDeleted);
   const inquiriesEl = document.getElementById('stat-active-inquiries');
   if (inquiriesEl) {
-    inquiriesEl.textContent = currentInquiries.length;
+    inquiriesEl.textContent = visibleInquiries.length;
   }
 
-  // 2. Quotes Sent Count (15 base + total inquiries + approved/shipped orders)
-  const quotesCount = 15 + currentInquiries.length + currentOrders.filter(o => o.status !== 'new').length;
+  // 2. Quotes Sent Count (15 base + visible inquiries + approved/shipped orders)
+  const quotesCount = 15 + visibleInquiries.length + currentOrders.filter(o => o.status !== 'new').length;
   const quotesEl = document.getElementById('stat-quotes-sent');
   if (quotesEl) {
     quotesEl.textContent = quotesCount;
@@ -2798,7 +2822,7 @@ function updateDashboardStats() {
   }
 
   // 5. Update unread badge on sidebar Inquiries nav item
-  const unreadCount = currentInquiries.filter(i => i.status === 'pending' || !i.status).length;
+  const unreadCount = visibleInquiries.filter(i => i.status === 'pending' || !i.status).length;
   const badge = document.getElementById('nav-inquiries-badge');
   if (badge) {
     if (unreadCount > 0) {
@@ -2810,6 +2834,8 @@ function updateDashboardStats() {
   }
 
   // 6. Calculate and Render Donut Chart dynamically
+  // Use ALL currentInquiries (including any remaining isDeleted ones) for chart continuity,
+  // since hard-deleted ones are already removed from currentInquiries by the delete handler.
   const serviceCounts = {};
   currentInquiries.forEach(inq => {
     const slug = inq.service;

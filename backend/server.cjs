@@ -827,6 +827,46 @@ app.put('/api/inquiries/:id', async (req, res) => {
   }
 });
 
+// 4b. Hard-Delete Inquiry (removes from inbox but preserves chart stats)
+app.delete('/api/inquiries/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await pool.query('SELECT * FROM inquiries WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Inquiry not found' });
+    }
+
+    const inquiry = rows[0];
+
+    // ── Preserve chart data before deleting ──
+    // Ensure the inquiry_stats table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS inquiry_stats (
+        id VARCHAR(64) PRIMARY KEY,
+        service VARCHAR(255),
+        status VARCHAR(64),
+        createdAt VARCHAR(64),
+        deletedAt VARCHAR(64)
+      )
+    `).catch(() => {});
+
+    // Insert a lightweight stat record so charts still count this inquiry
+    await pool.query(
+      'INSERT IGNORE INTO inquiry_stats (id, service, status, createdAt, deletedAt) VALUES (?, ?, ?, ?, ?)',
+      [inquiry.id, inquiry.service || null, inquiry.status || 'pending', inquiry.createdAt, new Date().toISOString()]
+    ).catch(() => {});
+
+    // Hard-delete the inquiry row
+    await pool.query('DELETE FROM inquiries WHERE id = ?', [id]);
+
+    res.json({ success: true, id, deleted: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete inquiry' });
+  }
+});
+
+
 // 5. Fetch B2B Orders List
 app.get('/api/orders', async (req, res) => {
   try {
