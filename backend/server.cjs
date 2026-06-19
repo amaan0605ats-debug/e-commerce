@@ -53,7 +53,8 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'https://algani-website.onrender.com',
   'https://e-commerce-webite.onrender.com',
-  'https://e-commerce-website.onrender.com'
+  'https://e-commerce-website.onrender.com',
+  'https://ecommerce.onrender.com'
 ];
 app.use(cors((req, callback) => {
   const origin = req.header('Origin');
@@ -76,7 +77,8 @@ app.use(cors((req, callback) => {
       else if (originUrl.hostname.endsWith('.onrender.com') &&
                (originUrl.hostname.includes('e-commerce-webite') ||
                 originUrl.hostname.includes('e-commerce-website') ||
-                originUrl.hostname.includes('algani-website'))) {
+                originUrl.hostname.includes('algani-website') ||
+                originUrl.hostname.includes('ecommerce'))) {
         isAllowed = true;
       }
     } catch (e) {}
