@@ -6,6 +6,17 @@ import {
   changePassword, getCachedProducts
 } from '../firebase.js';
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+}
+
 let unsubInquiries = null;
 let unsubOrders = null;
 let unsubAlerts = null;
@@ -1832,7 +1843,10 @@ export function initAdmin() {
     try {
       const res = await fetch('/api/custom-services', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': auth.currentUser?.token ? `Bearer ${auth.currentUser.token}` : ''
+        },
         body: JSON.stringify({
           name,
           category,
@@ -2202,12 +2216,14 @@ function renderOrdersTable(orders) {
           if (order.status === 'approved') statusBadge = `<span class="pill-status pill-active">Active</span>`;
           if (order.status === 'shipped' || order.status === 'delivered') statusBadge = `<span class="pill-status pill-delivered">Delivered</span>`;
 
+          const safeClientName = escapeHtml(order.clientName || '—');
+          const safeRegion = escapeHtml(order.region || '—');
           return `
             <tr>
               <td style="font-family:monospace; font-size:11px; opacity:0.6;">${order.id.slice(0, 8)}...</td>
-              <td><strong>${order.clientName || '—'}</strong></td>
+              <td><strong>${safeClientName}</strong></td>
               <td>${svcIcon} ${svcName}</td>
-              <td>${order.region || '—'}</td>
+              <td>${safeRegion}</td>
               <td>${statusBadge}</td>
               <td style="display:flex; gap:8px; align-items:center;">
                 ${order.status === 'new' ? `<button class="admin-action-sm admin-approve-btn" data-id="${order.id}">Approve</button>` : ''}
@@ -2322,7 +2338,10 @@ function setupInventoryAlertsListener() {
       btn.addEventListener('click', async () => {
         const alertId = btn.dataset.id;
         try {
-          await fetch(`/api/alerts/${alertId}/read`, { method: 'PUT' });
+          await fetch(`/api/alerts/${alertId}/read`, {
+            method: 'PUT',
+            headers: auth.currentUser?.token ? { 'Authorization': `Bearer ${auth.currentUser.token}` } : {}
+          });
         } catch (err) {
           console.error('Error dismissing alert:', err);
         }
@@ -2333,7 +2352,10 @@ function setupInventoryAlertsListener() {
     if (dismissAllBtn) {
       dismissAllBtn.addEventListener('click', async () => {
         const dismissPromises = unreadAlerts.map(alert => 
-          fetch(`/api/alerts/${alert.id}/read`, { method: 'PUT' })
+          fetch(`/api/alerts/${alert.id}/read`, {
+            method: 'PUT',
+            headers: auth.currentUser?.token ? { 'Authorization': `Bearer ${auth.currentUser.token}` } : {}
+          })
         );
         try {
           await Promise.all(dismissPromises);
@@ -2374,12 +2396,16 @@ function renderPartners(partners) {
   
   container.innerHTML = partners.map(p => {
     const isActive = p.status === 'active';
+    const safeLogo = escapeHtml(p.logo || '🌐');
+    const safeName = escapeHtml(p.name);
+    const safeType = escapeHtml(p.type || 'B2B Partner');
+    const safeTimeAgo = escapeHtml(p.timeAgo || 'Recent');
     return `
       <div class="partner-card-elite" id="partner-card-${p.id}" style="display:flex; align-items:center; background:rgba(26,12,3,0.4); border:1.5px solid rgba(200,146,42,0.1); border-radius:12px; padding:20px; transition:all 0.3s; position:relative; gap:16px;">
-        <div class="partner-logo-elite" style="font-size:24px; width:48px; height:48px; display:flex; align-items:center; justify-content:center; background:rgba(224,176,80,0.08); border:1px solid rgba(224,176,80,0.15); border-radius:10px;">${p.logo || '🌐'}</div>
+        <div class="partner-logo-elite" style="font-size:24px; width:48px; height:48px; display:flex; align-items:center; justify-content:center; background:rgba(224,176,80,0.08); border:1px solid rgba(224,176,80,0.15); border-radius:10px;">${safeLogo}</div>
         <div>
-          <h3 style="font-size:16px; font-weight:600; color:#FBF3E3; margin:0;">${p.name}</h3>
-          <p style="font-size:13px; color:rgba(251,243,227,0.5); margin:4px 0 0 0;">${p.type || 'B2B Partner'} · ${p.timeAgo || 'Recent'}</p>
+          <h3 style="font-size:16px; font-weight:600; color:#FBF3E3; margin:0;">${safeName}</h3>
+          <p style="font-size:13px; color:rgba(251,243,227,0.5); margin:4px 0 0 0;">${safeType} · ${safeTimeAgo}</p>
         </div>
         
         <div style="margin-left:auto; display:flex; align-items:center; gap:14px;">
@@ -2401,7 +2427,10 @@ function renderPartners(partners) {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.id;
       try {
-        await fetch(`/api/partners/${id}/approve`, { method: 'PUT' });
+        await fetch(`/api/partners/${id}/approve`, {
+          method: 'PUT',
+          headers: auth.currentUser?.token ? { 'Authorization': `Bearer ${auth.currentUser.token}` } : {}
+        });
       } catch (err) {
         console.error('Error approving partner:', err);
       }
@@ -2413,7 +2442,10 @@ function renderPartners(partners) {
       const id = btn.dataset.id;
       if (confirm("Are you sure you want to remove this corporate partner organization?")) {
         try {
-          await fetch(`/api/partners/${id}`, { method: 'DELETE' });
+          await fetch(`/api/partners/${id}`, {
+            method: 'DELETE',
+            headers: auth.currentUser?.token ? { 'Authorization': `Bearer ${auth.currentUser.token}` } : {}
+          });
         } catch (err) {
           console.error('Error deleting partner:', err);
         }
@@ -2494,7 +2526,7 @@ function renderInquiries(msgs) {
         <!-- Left Column (Inbox) -->
         <div style="display:flex; flex-direction:column; border-right: 1px solid rgba(251,243,227,0.05); padding-right: 24px;">
           <h3 style="font-family: 'Montserrat', sans-serif; font-size: 14px; color: #FBF3E3; margin-bottom: 16px; font-weight: 600;">Recent Inbox</h3>
-          <input type="text" id="inbox-search-input" placeholder="Search by name, email..." value="${inboxSearchQuery}" style="background: rgba(14,6,2,0.85); border: 1.5px solid rgba(224, 176, 80, 0.25); border-radius: 8px; padding: 8px 12px; font-family: 'Montserrat', sans-serif; font-size: 12px; color: #FFFFFF; width: 100%; outline: none; margin-bottom: 14px;">
+          <input type="text" id="inbox-search-input" placeholder="Search by name, email..." value="${escapeHtml(inboxSearchQuery)}" style="background: rgba(14,6,2,0.85); border: 1.5px solid rgba(224, 176, 80, 0.25); border-radius: 8px; padding: 8px 12px; font-family: 'Montserrat', sans-serif; font-size: 12px; color: #FFFFFF; width: 100%; outline: none; margin-bottom: 14px;">
           <div style="display:flex; flex-direction:column; gap: 8px; overflow-y:auto; max-height: 600px; padding-right: 8px;" class="admin-scrollbar">
             ${filteredMsgs.map(msg => {
               const isSelected = msg.id === selectedInquiryId;
@@ -2502,14 +2534,18 @@ function renderInquiries(msgs) {
               const timeAgo = getTimeAgo(msg.createdAt);
               const svc = services.find(s => s.slug === msg.service);
               
+              const safeMsgName = escapeHtml(msg.name || 'Visitor');
+              const safeMsgSubject = escapeHtml(msg.subject || 'General Inquiry');
+              const safeMsgSvcName = svc ? ` · ${escapeHtml(svc.name)}` : '';
+              
               return `
                 <div class="inquiry-list-item" data-id="${msg.id}" style="padding: 16px; cursor: pointer; border-radius: 8px; border-left: 3px solid ${isSelected ? '#E0B050' : 'transparent'}; background: ${isSelected ? 'rgba(251,243,227,0.05)' : 'transparent'}; transition: all 0.2s ease;">
                   <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
-                    <strong style="font-size: 13px; color: #FBF3E3;">${msg.name || 'Visitor'}</strong>
+                    <strong style="font-size: 13px; color: #FBF3E3;">${safeMsgName}</strong>
                     <span style="font-size: 11px; color: rgba(251,243,227,0.4);">${timeAgo}</span>
                   </div>
                   <div style="font-size: 11px; color: rgba(251,243,227,0.6); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    ${msg.subject || 'General Inquiry'} ${svc ? `· ${svc.name}` : ''}
+                    ${safeMsgSubject}${safeMsgSvcName}
                   </div>
                   <div style="display:flex; justify-content:flex-end;">
                     ${isUnread ? '<span style="font-size: 9px; padding: 2px 6px; background: rgba(224,176,80,0.15); color: #E0B050; border-radius: 4px; text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">Unread</span>' : '<span style="font-size: 9px; padding: 2px 6px; color: rgba(251,243,227,0.3); text-transform: uppercase; letter-spacing: 1px;">Read</span>'}
@@ -2524,7 +2560,7 @@ function renderInquiries(msgs) {
         <div style="display:flex; flex-direction:column; padding-left: 8px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid rgba(251,243,227,0.05);">
             <div>
-              <h2 style="font-family: 'Playfair Display', serif; font-size: 20px; color: #FBF3E3; margin-bottom: 6px;">${selectedMsg.subject || 'General Inquiry'} ${svcSel ? `· ${svcSel.name}` : ''}</h2>
+              <h2 style="font-family: 'Playfair Display', serif; font-size: 20px; color: #FBF3E3; margin-bottom: 6px;">${escapeHtml(selectedMsg.subject || 'General Inquiry')} ${svcSel ? `· ${escapeHtml(svcSel.name)}` : ''}</h2>
               <div style="font-size: 12px; color: rgba(251,243,227,0.5);">Received on ${createdDateStr}</div>
             </div>
             <div style="display:flex; gap: 8px;">
@@ -2544,26 +2580,26 @@ function renderInquiries(msgs) {
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
               <div>
                 <div style="font-size: 10px; color: rgba(251,243,227,0.3); margin-bottom: 4px;">Name</div>
-                <div style="font-size: 13px; color: #FBF3E3;">${selectedMsg.name || 'Visitor'}</div>
+                <div style="font-size: 13px; color: #FBF3E3;">${escapeHtml(selectedMsg.name || 'Visitor')}</div>
               </div>
               <div>
                 <div style="font-size: 10px; color: rgba(251,243,227,0.3); margin-bottom: 4px;">Email</div>
-                <div style="font-size: 13px; color: #E0B050;">${selectedMsg.email}</div>
+                <div style="font-size: 13px; color: #E0B050;">${escapeHtml(selectedMsg.email)}</div>
               </div>
               <div>
                 <div style="font-size: 10px; color: rgba(251,243,227,0.3); margin-bottom: 4px;">Phone</div>
-                <div style="font-size: 13px; color: #FBF3E3;">${selectedMsg.phone || '—'}</div>
+                <div style="font-size: 13px; color: #FBF3E3;">${escapeHtml(selectedMsg.phone || '—')}</div>
               </div>
               <div>
                 <div style="font-size: 10px; color: rgba(251,243,227,0.3); margin-bottom: 4px;">Location / Territory</div>
-                <div style="font-size: 13px; color: #FBF3E3;">${selectedMsg.location || '—'}</div>
+                <div style="font-size: 13px; color: #FBF3E3;">${escapeHtml(selectedMsg.location || '—')}</div>
               </div>
             </div>
           </div>
 
           <div style="flex: 1;">
             <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(251,243,227,0.4); margin-bottom: 12px;">Message Text</h4>
-            <div style="background: rgba(251,243,227,0.03); border-left: 2px solid #E0B050; padding: 16px; border-radius: 0 8px 8px 0; font-size: 13.5px; line-height: 1.7; color: rgba(251,243,227,0.8); white-space: pre-wrap;">${selectedMsg.message}</div>
+            <div style="background: rgba(251,243,227,0.03); border-left: 2px solid #E0B050; padding: 16px; border-radius: 0 8px 8px 0; font-size: 13.5px; line-height: 1.7; color: rgba(251,243,227,0.8); white-space: pre-wrap;">${escapeHtml(selectedMsg.message)}</div>
           </div>
           
           ${selectedMsg.status === 'accepted' ? `
@@ -2724,7 +2760,10 @@ function renderInquiries(msgs) {
           btn.disabled = true;
           btn.textContent = 'Deleting...';
           try {
-            const res = await fetch(`/api/inquiries/${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/inquiries/${id}`, {
+              method: 'DELETE',
+              headers: auth.currentUser?.token ? { 'Authorization': `Bearer ${auth.currentUser.token}` } : {}
+            });
             if (!res.ok) {
               const err = await res.json().catch(() => ({}));
               throw new Error(err.error || `HTTP ${res.status}`);
@@ -2777,9 +2816,9 @@ function renderInquiries(msgs) {
 
               return `
                 <tr>
-                  <td><strong>${msg.name || 'Visitor'}</strong></td>
-                  <td>${serviceLabel}</td>
-                  <td>${region}</td>
+                  <td><strong>${escapeHtml(msg.name || 'Visitor')}</strong></td>
+                  <td>${escapeHtml(serviceLabel)}</td>
+                  <td>${escapeHtml(region)}</td>
                   <td>${statusPill}</td>
                 </tr>
               `;

@@ -42,6 +42,18 @@ const onAuthStateChanged = (authInstance, callback) => {
   };
 };
 
+// Helper to inject JWT token in request headers
+const getAuthHeaders = (headers = {}) => {
+  const user = auth.currentUser;
+  if (user && user.token) {
+    return {
+      ...headers,
+      'Authorization': `Bearer ${user.token}`
+    };
+  }
+  return headers;
+};
+
 // Simulated signInWithEmailAndPassword HTTP Client Handler
 const signInWithEmailAndPassword = async (authInstance, email, password) => {
   const res = await fetch('/api/auth/login', {
@@ -130,7 +142,7 @@ const addDoc = async (collectionRef, data) => {
 
   const res = await fetch(`/api/${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload)
   });
 
@@ -157,7 +169,9 @@ const addDoc = async (collectionRef, data) => {
 // Simulated getDocs HTTP Fetch client mapping
 const getDocs = async (collectionRef) => {
   const path = collectionRef.path;
-  const res = await fetch(`/api/${path}`);
+  const res = await fetch(`/api/${path}`, {
+    headers: getAuthHeaders()
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch database collection '${path}'`);
   }
@@ -182,7 +196,9 @@ const getDocs = async (collectionRef) => {
 // Simulated getDoc HTTP Fetch single document mapping
 const getDoc = async (docRef) => {
   const { path, id } = docRef;
-  const res = await fetch(`/api/${path}/${id}`);
+  const res = await fetch(`/api/${path}/${id}`, {
+    headers: getAuthHeaders()
+  });
   if (!res.ok) {
     throw new Error(`Document '${id}' not found in database path '${path}'`);
   }
@@ -199,7 +215,7 @@ const updateDoc = async (docRef, data) => {
   const { path, id } = docRef;
   const res = await fetch(`/api/${path}/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data)
   });
 
@@ -216,7 +232,7 @@ const setDoc = async (docRef, data, options = {}) => {
   const { path, id } = docRef;
   const res = await fetch(`/api/${path}/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data)
   });
 
@@ -235,7 +251,9 @@ const onSnapshot = (queryRef, callback, errorCallback) => {
 
   const pollData = async () => {
     try {
-      const res = await fetch(`/api/${path}`);
+      const res = await fetch(`/api/${path}`, {
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error(`Fetch failed for polling real-time stream '${path}'`);
       const data = await res.json();
 
@@ -286,7 +304,7 @@ const onSnapshot = (queryRef, callback, errorCallback) => {
 const changePassword = async (email, currentPassword, newPassword) => {
   const res = await fetch('/api/auth/change-password', {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ email, currentPassword, newPassword })
   });
 
@@ -307,7 +325,9 @@ const getCachedProducts = async (forceRefresh = false) => {
   // Cache for 30 seconds to prevent constant HTTP queries on route switching
   if (!productsCache || forceRefresh || (now - lastCacheTime > 30000)) {
     try {
-      const res = await fetch('/api/products');
+      const res = await fetch('/api/products', {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         productsCache = await res.json();
         lastCacheTime = now;

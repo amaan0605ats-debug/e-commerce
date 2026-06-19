@@ -1,6 +1,16 @@
 import { services } from '../data/services.js';
 import { db, collection, addDoc, serverTimestamp } from '../firebase.js';
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+}
 
 export function renderContact() {
   return `
@@ -234,14 +244,18 @@ export function initContact() {
         formBox.style.transform = 'translateY(10px)';
         formBox.style.transition = 'all 0.4s ease';
 
+        const safeName = escapeHtml(name);
+        const safeSubject = escapeHtml(subject);
+        const safeServiceName = escapeHtml(serviceName);
+
         setTimeout(() => {
           formBox.innerHTML = `
             <div class="contact-success-card animate-visible" style="text-align: center; padding: 24px 12px;">
               <div style="font-size: 56px; margin-bottom: 20px; animation: bounce 1.5s ease infinite;">✨</div>
-              <h3 style="font-family: var(--font-display); font-size: 26px; color: var(--gold-light); margin-bottom: 12px; font-style: italic; font-weight: 700;">Thank You, ${name}!</h3>
+              <h3 style="font-family: var(--font-display); font-size: 26px; color: var(--gold-light); margin-bottom: 12px; font-style: italic; font-weight: 700;">Thank You, ${safeName}!</h3>
               <div class="section-rule" style="margin: 12px auto 20px;"></div>
               <p class="body-text" style="color: var(--text-dark) !important; font-size: 16px; line-height: 1.6; max-width: 420px; margin: 0 auto 24px; font-family: var(--font-body);">
-                Your message regarding <strong>${subject}</strong> ${serviceName ? `for <em>${serviceName}</em>` : ''} has been received by Al Gani. Our dedicated team will review your inquiry and reach out to you within 24 hours.
+                Your message regarding <strong>${safeSubject}</strong> ${safeServiceName ? `for <em>${safeServiceName}</em>` : ''} has been received by Al Gani. Our dedicated team will review your inquiry and reach out to you within 24 hours.
               </p>
               <div style="margin-top: 12px;">
                 <a href="#/" class="btn btn-primary" style="font-size: 11px; letter-spacing: 2px; padding: 10px 24px; border-radius: 30px;">Return to Home</a>

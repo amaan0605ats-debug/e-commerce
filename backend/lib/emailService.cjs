@@ -15,6 +15,17 @@
 
 const { Resend } = require('resend');
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+}
+
 let resend = null;
 
 function readEnv(key, fallback = '') {
@@ -224,11 +235,13 @@ async function sendOrderStatusEmail({ to, customerName, productName, statusKey }
   const from = getFromAddress();
 
   try {
+    const escapedName = customerName ? escapeHtml(customerName) : '';
+    const escapedProduct = productName ? escapeHtml(productName) : '';
     const { data, error } = await client.emails.send({
       from,
       to: [to],
       subject: template.subject(productName),
-      html: template.html(customerName, productName),
+      html: template.html(escapedName, escapedProduct),
     });
 
     if (error) {

@@ -3,18 +3,25 @@ const dotenv = require('dotenv');
 // Load environment variables from repo root as early as possible
 const envPath = path.join(__dirname, '..', '.env');
 const dotenvResult = dotenv.config({ path: envPath });
-console.log(`[debug] Dotenv loading from: ${envPath}`);
-if (dotenvResult.error) {
-  console.error('[debug] Dotenv error:', dotenvResult.error);
-} else {
-  console.log('[debug] Dotenv loaded successfully. Keys found:', Object.keys(dotenvResult.parsed || {}));
+
+if (process.env.NODE_ENV !== 'production') {
+  console.log(`[debug] Dotenv loading from: ${envPath}`);
+  if (dotenvResult.error) {
+    console.error('[debug] Dotenv error:', dotenvResult.error);
+  } else {
+    console.log('[debug] Dotenv loaded successfully. Keys found:', Object.keys(dotenvResult.parsed || {}));
+  }
+  console.log('[debug] process.env.RESEND_API_KEY exists:', Boolean(process.env.RESEND_API_KEY));
 }
-console.log('[debug] process.env.RESEND_API_KEY exists:', Boolean(process.env.RESEND_API_KEY));
 
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const crypto = require('crypto');
 const {
   resolveProductName,
   sendOrderStatusEmail,
@@ -24,8 +31,6 @@ const {
   verifySmtpConnection,
 } = require('./lib/emailService.cjs');
 
-
-
 const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
 
 const app = express();
@@ -33,6 +38,97 @@ const PORT = process.env.PORT || 5000;
 
 if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
+}
+
+// ── SECURITY MIDDLEWARES & UTILITIES ──
+
+// Helmet headers configuration
+app.use(helmet({
+  contentSecurityPolicy: false // Disable CSP to maintain full compatibility with Vite scripts & styles
+}));
+
+// CORS configuration (limit to production domain & local dev)
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://algani-website.onrender.com'
+];
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    return callback(new Error('CORS policy does not allow access from this origin'), false);
+  },
+  credentials: true
+}));
+
+// JSON body size limit (prevent DoS)
+app.use(express.json({ limit: '100kb' }));
+
+// Rate Limiters
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' }
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts, please try again after 15 minutes.' }
+});
+
+const contactLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many contact submissions, please try again later.' }
+});
+
+// Apply general rate limit to all /api routes
+app.use('/api/', generalLimiter);
+
+// JWT Secret Key
+const JWT_SECRET = process.env.JWT_SECRET || 'algani-website-jwt-secret-key-change-me';
+
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'algani-website-jwt-secret-key-change-me')) {
+  console.warn('⚠️ WARNING: Using default JWT secret in production. Please set JWT_SECRET env variable!');
+}
+
+// Authentication guard middleware for admin routes
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ code: 'auth/unauthorized', error: 'Authentication required' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.admin = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ code: 'auth/invalid-token', error: 'Invalid or expired token' });
+  }
+}
+
+// Input sanitization helper
+function sanitizeInput(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
 }
 
 // Parse DB_HOST/DB_*, Railway MYSQL* vars, or cloud MYSQL_URL (TiDB, Railway, etc.)
@@ -94,9 +190,7 @@ function getDbSslOptions() {
 let pool;
 let lastDbError = null;
 
-// Enable CORS and JSON parsing
-app.use(cors());
-app.use(express.json());
+// Enable database health checks
 
 app.get('/api/health', (req, res) => {
   // Always 200 so Render health checks pass while TiDB is still connecting
@@ -351,7 +445,14 @@ async function seedDatabase() {
       console.log('Seeding default administrator credentials for aftab@algani...');
       
       const adminEmail = 'aftab@algani';
-      const adminPass = process.env.ADMIN_PASSWORD_1 || 'admin123';
+      let adminPass = process.env.ADMIN_PASSWORD_1;
+      if (!adminPass) {
+        if (process.env.NODE_ENV === 'production') {
+          console.error('❌ CRITICAL: ADMIN_PASSWORD_1 env variable is missing. Refusing to seed default admin in production!');
+          return;
+        }
+        adminPass = 'admin123';
+      }
       const adminName = 'Syed Mir Aftab';
       
       const hashedPassword = bcrypt.hashSync(adminPass, 10);
@@ -532,7 +633,7 @@ async function seedDatabase() {
 // ── API ROUTES ──
 
 // Fetch Corporate Partners List
-app.get('/api/partners', async (req, res) => {
+app.get('/api/partners', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM partners ORDER BY status ASC, name ASC');
     res.json(rows);
@@ -543,7 +644,7 @@ app.get('/api/partners', async (req, res) => {
 });
 
 // Approve Corporate Partner Status
-app.put('/api/partners/:id/approve', async (req, res) => {
+app.put('/api/partners/:id/approve', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('UPDATE partners SET status = "active" WHERE id = ?', [id]);
@@ -555,7 +656,7 @@ app.put('/api/partners/:id/approve', async (req, res) => {
 });
 
 // Delete/Remove Corporate Partner
-app.delete('/api/partners/:id', async (req, res) => {
+app.delete('/api/partners/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM partners WHERE id = ?', [id]);
@@ -567,22 +668,36 @@ app.delete('/api/partners/:id', async (req, res) => {
 });
 
 // Add Manually a Corporate Partner
-app.post('/api/partners', async (req, res) => {
-  const { name, type, logo, status } = req.body;
-  if (!name) {
-    return res.status(400).json({ error: 'Partner Name is required' });
+app.post('/api/partners', requireAuth, async (req, res) => {
+  let { name, type, logo, status } = req.body;
+  
+  if (!name || typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 200) {
+    return res.status(400).json({ error: 'Partner Name is required and must be under 200 chars' });
   }
-  const id = 'pt-' + Math.random().toString(36).substr(2, 9);
+  if (type && (typeof type !== 'string' || type.trim().length > 200)) {
+    return res.status(400).json({ error: 'Type is too long' });
+  }
+  if (logo && (typeof logo !== 'string' || logo.trim().length > 50)) {
+    return res.status(400).json({ error: 'Logo is too long' });
+  }
+  if (status && (typeof status !== 'string' || status.trim().length > 50)) {
+    return res.status(400).json({ error: 'Status is too long' });
+  }
+
+  name = sanitizeInput(name.trim());
+  type = type ? sanitizeInput(type.trim()) : '';
+  logo = logo ? sanitizeInput(logo.trim()) : '🌐';
+  status = status ? sanitizeInput(status.trim()) : 'pending';
+  
+  const id = 'pt-' + crypto.randomUUID();
   const timeAgo = 'Just now';
-  const partnerLogo = logo || '🌐';
-  const partnerStatus = status || 'pending';
   
   try {
     await pool.query(
       'INSERT INTO partners (id, name, type, timeAgo, logo, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, name, type || '', timeAgo, partnerLogo, partnerStatus]
+      [id, name, type, timeAgo, logo, status]
     );
-    res.json({ id, name, type, timeAgo, logo: partnerLogo, status: partnerStatus });
+    res.json({ id, name, type, timeAgo, logo, status });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to add corporate partner' });
@@ -606,26 +721,56 @@ app.get('/api/custom-services', async (req, res) => {
 });
 
 // Add Manually a Custom Service/Offering & matching catalog product record
-app.post('/api/custom-services', async (req, res) => {
-  const { name, category, icon, shortDesc, longDesc, features, gallery, inventoryCount, lowStockThreshold } = req.body;
+app.post('/api/custom-services', requireAuth, async (req, res) => {
+  let { name, category, icon, shortDesc, longDesc, features, gallery, inventoryCount, lowStockThreshold } = req.body;
   if (!name || !category || !shortDesc || !longDesc) {
     return res.status(400).json({ error: 'Name, Category, Short Description, and Long Description are required' });
   }
   
+  if (typeof name !== 'string' || name.trim().length > 200 ||
+      typeof category !== 'string' || category.trim().length > 200 ||
+      typeof shortDesc !== 'string' || shortDesc.trim().length > 1000 ||
+      typeof longDesc !== 'string' || longDesc.trim().length > 5000) {
+    return res.status(400).json({ error: 'Inputs are invalid or exceed length limits' });
+  }
+
+  if (features && !Array.isArray(features)) {
+    return res.status(400).json({ error: 'Features must be an array' });
+  }
+  if (gallery && !Array.isArray(gallery)) {
+    return res.status(400).json({ error: 'Gallery must be an array' });
+  }
+
+  name = sanitizeInput(name.trim());
+  category = sanitizeInput(category.trim());
+  icon = icon ? sanitizeInput(String(icon).trim()) : '📦';
+  shortDesc = sanitizeInput(shortDesc.trim());
+  longDesc = sanitizeInput(longDesc.trim());
+
+  const sanitizedFeatures = (features || []).map(f => (typeof f === 'string' ? sanitizeInput(f) : ''));
+  const sanitizedGallery = (gallery || []).map(g => {
+    if (g && typeof g === 'object') {
+      return {
+        ...g,
+        caption: g.caption ? sanitizeInput(String(g.caption)) : ''
+      };
+    }
+    return g;
+  });
+
   const slug = name.toLowerCase().trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
     
   const tag = 'Dynamic Offering';
-  const featuresJSON = JSON.stringify(features || []);
-  const galleryJSON = JSON.stringify(gallery || []);
-  const customIcon = icon || '📦';
+  const featuresJSON = JSON.stringify(sanitizedFeatures);
+  const galleryJSON = JSON.stringify(sanitizedGallery);
   
   try {
     // 1. Save offering to custom_services table
     await pool.query(
       'INSERT INTO custom_services (slug, name, icon, category, tag, shortDesc, longDesc, features, gallery) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [slug, name, customIcon, category, tag, shortDesc, longDesc, featuresJSON, galleryJSON]
+      [slug, name, icon, category, tag, shortDesc, longDesc, featuresJSON, galleryJSON]
     );
     
     // 2. Synchronize with products table for inventory catalog status tracking
@@ -642,10 +787,13 @@ app.post('/api/custom-services', async (req, res) => {
 });
 
 // 1. Authenticate Admin Login
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
+  if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
     return res.status(400).json({ error: 'Email and password are required' });
+  }
+  if (email.length > 250 || password.length > 250) {
+    return res.status(400).json({ error: 'Inputs exceed maximum length' });
   }
 
   if (email !== 'aftab@algani') {
@@ -664,11 +812,19 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ code: 'auth/wrong-password', error: 'Incorrect password.' });
     }
 
-    // Success response returning user data (simulates Firebase auth payload)
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: admin.id, email: admin.email, displayName: admin.displayName },
+      JWT_SECRET,
+      { expiresIn: '12h' }
+    );
+
+    // Success response returning user data + JWT token
     res.json({
       uid: admin.id,
       email: admin.email,
-      displayName: admin.displayName
+      displayName: admin.displayName,
+      token
     });
 
   } catch (err) {
@@ -706,7 +862,7 @@ async function decrementInventory(slug, decrement = 5) {
     // Trigger alert if we crossed the threshold
     if (newInventory <= threshold && currentInventory > threshold) {
       const email = product.supplierEmail || 'supplier@algani.com';
-      const alertId = 'alt-' + Math.random().toString(36).substr(2, 9);
+      const alertId = 'alt-' + crypto.randomUUID();
       const createdAt = new Date().toISOString();
       const alertMessage = `CRITICAL: Stock for service/product '${slug}' has dropped to ${newInventory} (Threshold: ${threshold}). Please arrange urgent resupply dispatch.`;
       
@@ -728,7 +884,7 @@ async function decrementInventory(slug, decrement = 5) {
 }
 
 // 2. Fetch Customer Inquiries List
-app.get('/api/inquiries', async (req, res) => {
+app.get('/api/inquiries', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM inquiries ORDER BY createdAt DESC');
     res.json(rows);
@@ -739,21 +895,56 @@ app.get('/api/inquiries', async (req, res) => {
 });
 
 // 3. Submit Customer Inquiry (order request — status: pending)
-app.post('/api/inquiries', async (req, res) => {
-  const { name, email, phone, subject, service, location, message, productName } = req.body;
+app.post('/api/inquiries', contactLimiter, async (req, res) => {
+  let { name, email, phone, subject, service, location, message, productName } = req.body;
   if (!name || !email || !message) {
     return res.status(400).json({ error: 'Name, email, and message are required' });
   }
 
+  // Validate types & lengths
+  if (typeof name !== 'string' || name.trim().length > 200 || name.trim().length === 0) {
+    return res.status(400).json({ error: 'Invalid name' });
+  }
+  if (typeof email !== 'string' || email.trim().length > 250 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+  if (typeof message !== 'string' || message.trim().length > 5000 || message.trim().length === 0) {
+    return res.status(400).json({ error: 'Invalid message content' });
+  }
+  if (phone && (typeof phone !== 'string' || phone.trim().length > 50)) {
+    return res.status(400).json({ error: 'Phone number is too long' });
+  }
+  if (subject && (typeof subject !== 'string' || subject.trim().length > 300)) {
+    return res.status(400).json({ error: 'Subject is too long' });
+  }
+  if (service && (typeof service !== 'string' || service.trim().length > 100)) {
+    return res.status(400).json({ error: 'Service slug is too long' });
+  }
+  if (location && (typeof location !== 'string' || location.trim().length > 200)) {
+    return res.status(400).json({ error: 'Location is too long' });
+  }
+  if (productName && (typeof productName !== 'string' || productName.trim().length > 200)) {
+    return res.status(400).json({ error: 'Product name is too long' });
+  }
+
+  // Clean inputs
+  name = sanitizeInput(name.trim());
+  email = sanitizeInput(email.trim());
+  message = sanitizeInput(message.trim());
+  phone = phone ? sanitizeInput(phone.trim()) : '';
+  subject = subject ? sanitizeInput(subject.trim()) : '';
+  service = service ? sanitizeInput(service.trim()) : '';
+  location = location ? sanitizeInput(location.trim()) : '';
+  productName = productName ? sanitizeInput(productName.trim()) : '';
+
   try {
-    const id = 'inq-' + Math.random().toString(36).substr(2, 9);
+    const id = 'inq-' + crypto.randomUUID();
     const createdAt = new Date().toISOString();
-    const storedProductName =
-      (productName && String(productName).trim()) || slugToDisplayName(service);
+    const storedProductName = productName || slugToDisplayName(service);
 
     await pool.query(
       'INSERT INTO inquiries (id, name, email, phone, subject, service, location, message, status, createdAt, productName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, name, email, phone || '', subject || '', service || '', location || '', message, 'pending', createdAt, storedProductName]
+      [id, name, email, phone, subject, service, location, message, 'pending', createdAt, storedProductName]
     );
 
     if (service) {
@@ -796,9 +987,9 @@ app.post('/api/inquiries', async (req, res) => {
 });
 
 // 4. Update Inquiry Read Status
-app.put('/api/inquiries/:id', async (req, res) => {
+app.put('/api/inquiries/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { status, convertedToOrder, isDeleted } = req.body;
+  let { status, convertedToOrder, isDeleted } = req.body;
   
   try {
     const [rows] = await pool.query('SELECT * FROM inquiries WHERE id = ?', [id]);
@@ -808,6 +999,15 @@ app.put('/api/inquiries/:id', async (req, res) => {
     
     const inquiry = rows[0];
     const previousStatus = (inquiry.status || 'pending').toLowerCase();
+    
+    // Validation
+    if (status !== undefined) {
+      if (typeof status !== 'string' || status.trim().length > 50) {
+        return res.status(400).json({ error: 'Invalid status value' });
+      }
+      status = sanitizeInput(status.trim());
+    }
+
     const dbStatus = status !== undefined ? status : inquiry.status;
     const dbConverted = convertedToOrder !== undefined ? (convertedToOrder ? 1 : 0) : inquiry.convertedToOrder;
     const dbDeleted = isDeleted !== undefined ? (isDeleted ? 1 : 0) : inquiry.isDeleted;
@@ -842,7 +1042,7 @@ app.put('/api/inquiries/:id', async (req, res) => {
 });
 
 // 4b. Hard-Delete Inquiry (removes from inbox but preserves chart stats)
-app.delete('/api/inquiries/:id', async (req, res) => {
+app.delete('/api/inquiries/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
     const [rows] = await pool.query('SELECT * FROM inquiries WHERE id = ?', [id]);
@@ -882,7 +1082,7 @@ app.delete('/api/inquiries/:id', async (req, res) => {
 
 
 // 5. Fetch B2B Orders List
-app.get('/api/orders', async (req, res) => {
+app.get('/api/orders', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM orders ORDER BY createdAt DESC');
     res.json(rows);
@@ -893,8 +1093,8 @@ app.get('/api/orders', async (req, res) => {
 });
 
 // 6. Schedule New Delivery Order
-app.post('/api/orders', async (req, res) => {
-  const {
+app.post('/api/orders', requireAuth, async (req, res) => {
+  let {
     clientName,
     service,
     region,
@@ -907,8 +1107,31 @@ app.post('/api/orders', async (req, res) => {
     return res.status(400).json({ error: 'Client name, service slug, and operating region are required' });
   }
 
+  // Validate inputs
+  if (typeof clientName !== 'string' || clientName.trim().length > 200 ||
+      typeof service !== 'string' || service.trim().length > 100 ||
+      typeof region !== 'string' || region.trim().length > 200) {
+    return res.status(400).json({ error: 'Invalid client name, service, or region' });
+  }
+  if (notes && (typeof notes !== 'string' || notes.trim().length > 5000)) {
+    return res.status(400).json({ error: 'Notes are too long' });
+  }
+  if (customerEmail && (typeof customerEmail !== 'string' || customerEmail.trim().length > 250)) {
+    return res.status(400).json({ error: 'Customer email is too long' });
+  }
+  if (productName && (typeof productName !== 'string' || productName.trim().length > 200)) {
+    return res.status(400).json({ error: 'Product name is too long' });
+  }
+
+  clientName = sanitizeInput(clientName.trim());
+  service = sanitizeInput(service.trim());
+  region = sanitizeInput(region.trim());
+  notes = notes ? sanitizeInput(notes.trim()) : '';
+  customerEmail = customerEmail ? sanitizeInput(customerEmail.trim()) : '';
+  productName = productName ? sanitizeInput(productName.trim()) : '';
+
   try {
-    const id = 'ord-' + Math.random().toString(36).substr(2, 9);
+    const id = 'ord-' + crypto.randomUUID();
     const createdAt = new Date().toISOString();
     const resolvedProductName = await resolveProductName(pool, { slug: service, productName });
     
@@ -919,7 +1142,7 @@ app.post('/api/orders', async (req, res) => {
         clientName,
         service,
         region,
-        notes || '',
+        notes,
         'new',
         createdAt,
         createdAt,
@@ -977,9 +1200,9 @@ async function resolveOrderCustomerContext(pool, order) {
 }
 
 // 7. Update Delivery Order Fulfillment Status
-app.put('/api/orders/:id', async (req, res) => {
+app.put('/api/orders/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  let { status } = req.body;
   const updatedAt = new Date().toISOString();
   const deliveryStatuses = new Set(['delivered', 'shipped']);
 
@@ -991,6 +1214,13 @@ app.put('/api/orders/:id', async (req, res) => {
 
     const order = rows[0];
     const previousStatus = (order.status || '').toLowerCase();
+    
+    if (status !== undefined) {
+      if (typeof status !== 'string' || status.trim().length > 50) {
+        return res.status(400).json({ error: 'Invalid status' });
+      }
+      status = sanitizeInput(status.trim());
+    }
     const nextStatus = (status || '').toLowerCase();
 
     await pool.query('UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?', [status, updatedAt, id]);
@@ -1050,13 +1280,26 @@ app.get('/api/products', async (req, res) => {
 });
 
 // 9. Update/Save Product Stock Inventory Status and Site Visibility
-app.put('/api/products/:slug', async (req, res) => {
+app.put('/api/products/:slug', requireAuth, async (req, res) => {
   const { slug } = req.params;
-  const { stockStatus, visible, inventoryCount, lowStockThreshold, supplierEmail } = req.body;
+  let { stockStatus, visible, inventoryCount, lowStockThreshold, supplierEmail } = req.body;
 
   try {
     const [rows] = await pool.query('SELECT * FROM products WHERE slug = ?', [slug]);
     
+    if (stockStatus !== undefined) {
+      if (typeof stockStatus !== 'string' || stockStatus.trim().length > 50) {
+        return res.status(400).json({ error: 'Invalid stock status' });
+      }
+      stockStatus = sanitizeInput(stockStatus.trim());
+    }
+    if (supplierEmail !== undefined) {
+      if (typeof supplierEmail !== 'string' || supplierEmail.trim().length > 250) {
+        return res.status(400).json({ error: 'Invalid supplier email' });
+      }
+      supplierEmail = sanitizeInput(supplierEmail.trim());
+    }
+
     if (rows.length === 0) {
       const dbStatus = stockStatus || 'in-stock';
       const dbVisible = visible !== undefined ? (visible ? 1 : 0) : 1;
@@ -1090,7 +1333,7 @@ app.put('/api/products/:slug', async (req, res) => {
 });
 
 // 9b. Fetch Inventory Alerts
-app.get('/api/alerts', async (req, res) => {
+app.get('/api/alerts', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM inventory_alerts ORDER BY createdAt DESC');
     res.json(rows);
@@ -1101,7 +1344,7 @@ app.get('/api/alerts', async (req, res) => {
 });
 
 // 9c. Mark Alert as Read
-app.put('/api/alerts/:id/read', async (req, res) => {
+app.put('/api/alerts/:id/read', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('UPDATE inventory_alerts SET status = "read" WHERE id = ?', [id]);
@@ -1111,11 +1354,16 @@ app.put('/api/alerts/:id/read', async (req, res) => {
     res.status(500).json({ error: 'Failed to update alert status' });
   }
 });
+
 // 10. Update Admin Password
-app.put('/api/auth/change-password', async (req, res) => {
+app.put('/api/auth/change-password', requireAuth, async (req, res) => {
   const { email, currentPassword, newPassword } = req.body;
-  if (!email || !currentPassword || !newPassword) {
+  if (!email || !currentPassword || !newPassword || 
+      typeof email !== 'string' || typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
     return res.status(400).json({ error: 'All fields are required' });
+  }
+  if (email.length > 250 || currentPassword.length > 250 || newPassword.length > 250) {
+    return res.status(400).json({ error: 'Inputs exceed maximum length' });
   }
 
   try {

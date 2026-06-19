@@ -12,6 +12,17 @@ import { renderAdmin, initAdmin, cleanupAdmin } from './pages/admin.js';
 import { auth, onAuthStateChanged } from './firebase.js';
 import { services, serviceCategories } from './data/services.js';
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+}
+
 // ── GLOBAL THEME INITIALIZATION ──
 const savedTheme = localStorage.getItem('theme') || 'dark';
 document.body.setAttribute('data-theme', savedTheme);
@@ -651,7 +662,7 @@ const handleUserMessage = (text) => {
   userBubble.className = 'wa-msg wa-msg-user';
   userBubble.innerHTML = `
     <div class="wa-msg-avatar" style="color: #FFFFFF;">👤 Client Sourcing</div>
-    <div class="wa-msg-text">${text}</div>
+    <div class="wa-msg-text">${escapeHtml(text)}</div>
     <div class="wa-msg-time">${getFormattedTime()}</div>
   `;
   chatLog.appendChild(userBubble);
@@ -798,6 +809,7 @@ Would you like custom B2B bulk pricing or delivery scheduling for "${matchedServ
       waLink.className = 'wa-action-btn';
       waLink.href = `https://wa.me/919419014741?text=${encodeURIComponent(waTextPrefill)}`;
       waLink.target = '_blank';
+      waLink.rel = 'noopener';
       waLink.innerHTML = `<span>Launch Live Chat</span>`;
       const restartBtn = document.createElement('button');
       restartBtn.className = 'wa-restart-btn';
@@ -870,7 +882,7 @@ quickRepliesContainer?.addEventListener('click', (e) => {
   userBubble.className = 'wa-msg wa-msg-user';
   userBubble.innerHTML = `
     <div class="wa-msg-avatar" style="color: #FFFFFF;">👤 Client Sourcing</div>
-    <div class="wa-msg-text">${btn.textContent}</div>
+    <div class="wa-msg-text">${escapeHtml(btn.textContent)}</div>
     <div class="wa-msg-time">${getFormattedTime()}</div>
   `;
   chatLog.appendChild(userBubble);
