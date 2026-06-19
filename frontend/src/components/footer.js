@@ -70,7 +70,7 @@ export function createFooter() {
                 <span class="footer-contact-icon">💬</span>
                 <div>
                   <span class="footer-contact-label">WhatsApp</span>
-                  <span class="footer-contact-value"><a href="https://wa.me/919419014741" target="_blank" style="color: inherit; text-decoration: none;">+91 9419014741</a></span>
+                  <span class="footer-contact-value"><a href="https://wa.me/919419014741" target="_blank" rel="noopener" style="color: inherit; text-decoration: none;">+91 9419014741</a></span>
                 </div>
               </li>
               <li>

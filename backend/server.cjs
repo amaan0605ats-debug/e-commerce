@@ -73,7 +73,10 @@ app.use(cors((req, callback) => {
         isAllowed = true;
       }
       // Render subdomains wildcard check
-      else if (originUrl.hostname.endsWith('.onrender.com')) {
+      else if (originUrl.hostname.endsWith('.onrender.com') &&
+               (originUrl.hostname.includes('e-commerce-webite') ||
+                originUrl.hostname.includes('e-commerce-website') ||
+                originUrl.hostname.includes('algani-website'))) {
         isAllowed = true;
       }
     } catch (e) {}
@@ -118,10 +121,10 @@ const contactLimiter = rateLimit({
 app.use('/api/', generalLimiter);
 
 // JWT Secret Key
-const JWT_SECRET = process.env.JWT_SECRET || 'algani-website-jwt-secret-key-change-me';
-
-if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'algani-website-jwt-secret-key-change-me')) {
-  console.warn('⚠️ WARNING: Using default JWT secret in production. Please set JWT_SECRET env variable!');
+let JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  JWT_SECRET = crypto.randomBytes(32).toString('hex');
+  console.log('[security] JWT_SECRET env var is not set. Generated a cryptographically secure random secret key for this session.');
 }
 
 // Authentication guard middleware for admin routes
@@ -236,9 +239,8 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api') && req.path !== '/api/health' && !pool) {
     return res.status(503).json({
       code: 'auth/database-error',
-      error:
-        'Database not connected. Set MYSQL_URL (TiDB/Render) or Railway MySQL variables, then redeploy.',
-      detail: lastDbError || undefined,
+      error: 'Database not connected. Please contact support or check server logs.',
+      detail: process.env.NODE_ENV !== 'production' ? (lastDbError || undefined) : undefined,
     });
   }
   next();
@@ -483,6 +485,22 @@ async function seedDatabase() {
         'INSERT INTO admins (id, email, password, displayName) VALUES (?, ?, ?, ?)',
         ['admin-1', adminEmail, hashedPassword, adminName]
       );
+    }
+
+    // Verify password safety in production
+    const [existingAdmins] = await pool.query('SELECT * FROM admins WHERE email = ?', ['aftab@algani']);
+    if (existingAdmins.length > 0) {
+      const admin = existingAdmins[0];
+      if (bcrypt.compareSync('admin123', admin.password)) {
+        if (process.env.NODE_ENV === 'production') {
+          console.error('\n🚨🚨🚨 SECURITY CRITICAL WARNING 🚨🚨🚨');
+          console.error('⚠️  The administrator account (aftab@algani) is currently using the default password "admin123" in production!');
+          console.error('⚠️  Please change this password IMMEDIATELY via the admin panel /api/auth/change-password endpoint to prevent unauthorized access.');
+          console.error('🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨\n');
+        } else {
+          console.log('[security] Default admin user is active with password "admin123".');
+        }
+      }
     }
 
     // B. Seed default stock and visibility profiles for all 14 service products
@@ -773,11 +791,11 @@ app.post('/api/custom-services', requireAuth, async (req, res) => {
   const sanitizedGallery = (gallery || []).map(g => {
     if (g && typeof g === 'object') {
       return {
-        ...g,
-        caption: g.caption ? sanitizeInput(String(g.caption)) : ''
+        caption: g.caption ? sanitizeInput(String(g.caption)) : '',
+        url: g.url ? sanitizeInput(String(g.url)) : ''
       };
     }
-    return g;
+    return typeof g === 'string' ? sanitizeInput(g) : '';
   });
 
   const slug = name.toLowerCase().trim()
@@ -1421,6 +1439,15 @@ app.use((req, res) => {
     if (err) {
       res.status(200).send('Al Gani API server running! Client files will build on startup.');
     }
+  });
+});
+
+// Global error handling middleware (prevents stack trace disclosure)
+app.use((err, req, res, next) => {
+  console.error('[Error Handler]', err);
+  res.status(500).json({
+    error: 'An unexpected internal server error occurred.',
+    detail: process.env.NODE_ENV !== 'production' ? (err.message || String(err)) : undefined
   });
 });
 

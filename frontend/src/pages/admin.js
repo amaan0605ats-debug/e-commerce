@@ -2308,8 +2308,8 @@ function setupInventoryAlertsListener() {
           ${unreadAlerts.map(alert => `
             <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.25); border-left:4px solid #E0B050; border-radius:4px; padding:10px 14px; gap:16px;">
               <div style="flex:1;">
-                <p style="font-family:'Montserrat', sans-serif; font-size:12px; font-weight:500; color:#FBF3E3; line-height:1.4; margin:0;">${alert.message}</p>
-                <span style="font-size:10px; color:rgba(251,243,227,0.4); display:block; margin-top:4px;">Notified Supplier: ${alert.emailSentTo} • ${getTimeAgo(alert.createdAt)}</span>
+                <p style="font-family:'Montserrat', sans-serif; font-size:12px; font-weight:500; color:#FBF3E3; line-height:1.4; margin:0;">${escapeHtml(alert.message)}</p>
+                <span style="font-size:10px; color:rgba(251,243,227,0.4); display:block; margin-top:4px;">Notified Supplier: ${escapeHtml(alert.emailSentTo)} • ${getTimeAgo(alert.createdAt)}</span>
               </div>
               <button class="admin-alert-dismiss-btn" data-id="${alert.id}" style="background:rgba(255,255,255,0.08); border:1px solid rgba(251,243,227,0.15); border-radius:4px; color:#FBF3E3; font-family:'Montserrat', sans-serif; font-size:10px; font-weight:600; padding:4px 8px; cursor:pointer; white-space:nowrap; transition:all 0.2s;" onmouseover="this.style.background='#E0B050'; this.style.color='#110702';" onmouseout="this.style.background='rgba(255,255,255,0.08)'; this.style.color='#FBF3E3';">Dismiss</button>
             </div>
@@ -2488,7 +2488,7 @@ function renderInquiries(msgs) {
             <!-- Left Column (Inbox) -->
             <div style="display:flex; flex-direction:column; border-right: 1px solid rgba(251,243,227,0.05); padding-right: 24px;">
               <h3 style="font-family: 'Montserrat', sans-serif; font-size: 14px; color: #FBF3E3; margin-bottom: 16px; font-weight: 600;">Recent Inbox</h3>
-              <input type="text" id="inbox-search-input" placeholder="Search by name, email..." value="${inboxSearchQuery}" style="background: rgba(14,6,2,0.85); border: 1.5px solid rgba(224, 176, 80, 0.25); border-radius: 8px; padding: 8px 12px; font-family: 'Montserrat', sans-serif; font-size: 12px; color: #FFFFFF; width: 100%; outline: none; margin-bottom: 14px;">
+              <input type="text" id="inbox-search-input" placeholder="Search by name, email..." value="${escapeHtml(inboxSearchQuery)}" style="background: rgba(14,6,2,0.85); border: 1.5px solid rgba(224, 176, 80, 0.25); border-radius: 8px; padding: 8px 12px; font-family: 'Montserrat', sans-serif; font-size: 12px; color: #FFFFFF; width: 100%; outline: none; margin-bottom: 14px;">
               <p class="admin-empty-state" style="font-size: 12px; padding: 24px 0;">No matching inquiries found.</p>
             </div>
             <!-- Right Column -->
@@ -2620,7 +2620,7 @@ function renderInquiries(msgs) {
                     Convert to Delivery Order
                   </button>
                 `}
-                <a href="https://wa.me/${(selectedMsg.phone || '').replace(/[^0-9]/g, '') || '919419014741'}" target="_blank" class="admin-action-btn-elite" style="background: rgba(37,211,102,0.1); border: 1.5px solid rgba(37,211,102,0.3); color: #25D366; padding: 12px; font-size: 12px; font-weight: 600; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;">
+                <a href="https://wa.me/${(selectedMsg.phone || '').replace(/[^0-9]/g, '') || '919419014741'}" target="_blank" rel="noopener" class="admin-action-btn-elite" style="background: rgba(37,211,102,0.1); border: 1.5px solid rgba(37,211,102,0.3); color: #25D366; padding: 12px; font-size: 12px; font-weight: 600; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.734-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.97C16.528 2.028 14.07 1.001 11.453 1c-5.44 0-9.866 4.372-9.87 9.802 0 1.714.47 3.393 1.359 4.872L2.088 21l5.56-1.48.001-.004z"/></svg>
                   WhatsApp Client
                 </a>
