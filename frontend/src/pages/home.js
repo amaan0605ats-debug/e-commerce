@@ -5,8 +5,8 @@ export function renderHome() {
   return `
     <!-- HERO SECTION -->
     <section class="hero" id="hero-section">
-      <div class="hero-bg-image hero-day-bg" style="background-image: url('/images/hero-day.jpg');"></div>
-      <div class="hero-bg-image hero-night-bg" style="background-image: url('/images/hero-night.jpg');"></div>
+      <div class="hero-bg-image hero-day-bg" style="background-image: url('/images/hero-day.webp');"></div>
+      <div class="hero-bg-image hero-night-bg" style="background-image: url('/images/hero-night.webp');"></div>
       <div class="hero-overlay"></div>
       <div class="hero-cinemagraph-layer">
         <!-- Shikara Boat 1 -->
@@ -209,7 +209,7 @@ export function renderHome() {
                style="animation-delay: ${(i % 6) * 0.05}s; ${i >= 6 ? 'display: none;' : ''}" 
                data-category="${service.category}">
               <div class="service-card-img-wrap">
-                <img src="/images/${service.slug}.png" onerror="this.src='/images/general-commercial-supplies.png'" alt="${service.name}" class="service-card-img" loading="lazy">
+                <img src="/images/${service.slug}.webp" onerror="this.src='/images/general-commercial-supplies.webp'" alt="${service.name}" class="service-card-img" loading="lazy">
               </div>
               <div class="service-card-icon">${service.icon}</div>
               <h3 class="service-card-name">${service.name}</h3>

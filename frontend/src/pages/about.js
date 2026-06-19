@@ -58,7 +58,7 @@ export function renderAbout() {
 
           <div class="about-sidebar animate-on-scroll">
             <div class="about-sidebar-image-container">
-              <img src="/images/about_sidebar_graphic.png" alt="Al Gani Supply Chain and Logistics" class="about-sidebar-img-only">
+              <img src="/images/about_sidebar_graphic.webp" alt="Al Gani Supply Chain and Logistics" class="about-sidebar-img-only">
             </div>
           </div>
 

@@ -9,9 +9,9 @@ export function renderService(params) {
   }
 
   const related = getRelatedServices(service.slug, 4);
-  const imgPath = `/images/${service.slug}.png`;
-  const imgPath2 = `/images/${service.slug}-2.png`;
-  const imgPath3 = `/images/${service.slug}-3.png`;
+  const imgPath = `/images/${service.slug}.webp`;
+  const imgPath2 = `/images/${service.slug}-2.webp`;
+  const imgPath3 = `/images/${service.slug}-3.webp`;
 
   return `
     <!-- SERVICE HERO -->
@@ -74,13 +74,13 @@ export function renderService(params) {
       <div class="container">
         <div class="service-image-grid animate-on-scroll">
           <div class="service-image-card service-image-large">
-            <img src="${imgPath}" onerror="this.src='/images/general-commercial-supplies.png'" alt="${service.name} Overview" class="service-img" loading="lazy">
+            <img src="${imgPath}" onerror="this.src='/images/general-commercial-supplies.webp'" alt="${service.name} Overview" class="service-img" loading="lazy">
           </div>
           <div class="service-image-card">
-            <img src="${imgPath2}" onerror="this.src='/images/general-commercial-supplies-2.png'" alt="${service.name} Detail" class="service-img" loading="lazy">
+            <img src="${imgPath2}" onerror="this.src='/images/general-commercial-supplies-2.webp'" alt="${service.name} Detail" class="service-img" loading="lazy">
           </div>
           <div class="service-image-card">
-            <img src="${imgPath3}" onerror="this.src='/images/general-commercial-supplies-3.png'" alt="${service.name} Close-up" class="service-img" loading="lazy">
+            <img src="${imgPath3}" onerror="this.src='/images/general-commercial-supplies-3.webp'" alt="${service.name} Close-up" class="service-img" loading="lazy">
           </div>
         </div>
       </div>
@@ -121,7 +121,7 @@ export function renderService(params) {
           ${related.map(s => `
             <a href="#/services/${s.slug}" class="related-card animate-on-scroll" id="related-${s.slug}">
               <div class="related-card-img">
-                <img src="/images/${s.slug}.png" onerror="this.src='/images/general-commercial-supplies.png'" alt="${s.name}" loading="lazy">
+                <img src="/images/${s.slug}.webp" onerror="this.src='/images/general-commercial-supplies.webp'" alt="${s.name}" loading="lazy">
               </div>
               <div class="related-card-body">
                 <div class="related-card-icon">${s.icon}</div>
@@ -188,7 +188,7 @@ export function renderServicesIndex() {
           ${services.map((service, i) => `
             <a href="#/services/${service.slug}" class="service-card animate-on-scroll" id="idx-${service.slug}" style="animation-delay: ${i * 0.04}s" data-category="${service.category}">
               <div class="service-card-img-wrap">
-                <img src="/images/${service.slug}.png" onerror="this.src='/images/general-commercial-supplies.png'" alt="${service.name}" class="service-card-img" loading="lazy">
+                <img src="/images/${service.slug}.webp" onerror="this.src='/images/general-commercial-supplies.webp'" alt="${service.name}" class="service-card-img" loading="lazy">
               </div>
               <div class="service-card-icon">${service.icon}</div>
               <h3 class="service-card-name">${service.name}</h3>

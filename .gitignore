@@ -30,3 +30,6 @@ backend/dist
 .env.local
 .env.*.local
 render-env-paste.txt
+
+# Image backups (unoptimized)
+frontend/public/images_backup/
