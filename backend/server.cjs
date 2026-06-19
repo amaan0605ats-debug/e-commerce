@@ -160,7 +160,7 @@ function sanitizeInput(str) {
 
 // Parse DB_HOST/DB_*, Railway MYSQL* vars, or cloud MYSQL_URL (TiDB, Railway, etc.)
 function parseDbConfig() {
-  const rawUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
+  const rawUrl = process.env.MYSQL_URL || process.env.DATABASE_URL || process.env.DB_URL;
   if (rawUrl && /^mysql2?:\/\//i.test(rawUrl)) {
     const url = new URL(rawUrl);
     const database =
