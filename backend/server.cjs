@@ -51,7 +51,9 @@ app.use(helmet({
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  'https://algani-website.onrender.com'
+  'https://algani-website.onrender.com',
+  'https://e-commerce-webite.onrender.com',
+  'https://e-commerce-website.onrender.com'
 ];
 app.use(cors({
   origin: function (origin, callback) {

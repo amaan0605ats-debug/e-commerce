@@ -2,7 +2,7 @@
 # Docs: https://render.com/docs/blueprint-spec
 services:
   - type: web
-    name: algani-website
+    name: e-commerce-webite
     runtime: node
     plan: free
     region: singapore
