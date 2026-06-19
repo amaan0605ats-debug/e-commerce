@@ -466,31 +466,33 @@ async function seedDatabase() {
     await pool.query('DELETE FROM admins WHERE email != ?', ['aftab@algani']);
 
     // Check if aftab@algani exists
-    const [adminRows] = await pool.query('SELECT COUNT(*) as count FROM admins WHERE email = ?', ['aftab@algani']);
-    if (adminRows[0].count === 0) {
-      console.log('Seeding default administrator credentials for aftab@algani...');
-      
-      const adminEmail = 'aftab@algani';
-      let adminPass = process.env.ADMIN_PASSWORD_1;
-      if (!adminPass) {
-        if (process.env.NODE_ENV === 'production') {
-          console.error('❌ CRITICAL: ADMIN_PASSWORD_1 env variable is missing. Refusing to seed default admin in production!');
-          return;
-        }
-        adminPass = 'admin123';
+    const adminEmail = 'aftab@algani';
+    let adminPass = process.env.ADMIN_PASSWORD_1;
+    if (!adminPass) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('❌ CRITICAL: ADMIN_PASSWORD_1 env variable is missing. Refusing to seed default admin in production!');
+        return;
       }
-      const adminName = 'Syed Mir Aftab';
-      
-      const hashedPassword = bcrypt.hashSync(adminPass, 10);
-      
+      adminPass = 'admin123';
+    }
+    const adminName = 'Syed Mir Aftab';
+    const hashedPassword = bcrypt.hashSync(adminPass, 10);
+
+    const [existingAdmins] = await pool.query('SELECT * FROM admins WHERE email = ?', [adminEmail]);
+    if (existingAdmins.length === 0) {
+      console.log('Seeding default administrator credentials for aftab@algani...');
       await pool.query(
         'INSERT INTO admins (id, email, password, displayName) VALUES (?, ?, ?, ?)',
         ['admin-1', adminEmail, hashedPassword, adminName]
       );
+    } else {
+      // Sync password with environment variable
+      console.log('Syncing administrator password with ADMIN_PASSWORD_1 environment variable...');
+      await pool.query(
+        'UPDATE admins SET password = ? WHERE email = ?',
+        [hashedPassword, adminEmail]
+      );
     }
-
-    // Verify password safety in production
-    const [existingAdmins] = await pool.query('SELECT * FROM admins WHERE email = ?', ['aftab@algani']);
     if (existingAdmins.length > 0) {
       const admin = existingAdmins[0];
       if (bcrypt.compareSync('admin123', admin.password)) {
