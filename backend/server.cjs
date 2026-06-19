@@ -55,15 +55,35 @@ const allowedOrigins = [
   'https://e-commerce-webite.onrender.com',
   'https://e-commerce-website.onrender.com'
 ];
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
-      return callback(null, true);
-    }
-    return callback(new Error('CORS policy does not allow access from this origin'), false);
-  },
-  credentials: true
+app.use(cors((req, callback) => {
+  const origin = req.header('Origin');
+  let isAllowed = false;
+
+  if (!origin) {
+    isAllowed = true;
+  } else if (process.env.NODE_ENV !== 'production') {
+    isAllowed = true;
+  } else if (allowedOrigins.indexOf(origin) !== -1) {
+    isAllowed = true;
+  } else {
+    try {
+      const originUrl = new URL(origin);
+      // Same-origin check
+      if (originUrl.host === req.header('Host')) {
+        isAllowed = true;
+      }
+      // Render subdomains wildcard check
+      else if (originUrl.hostname.endsWith('.onrender.com')) {
+        isAllowed = true;
+      }
+    } catch (e) {}
+  }
+
+  const corsOptions = {
+    origin: isAllowed ? origin : false,
+    credentials: true
+  };
+  callback(null, corsOptions);
 }));
 
 // JSON body size limit (prevent DoS)
