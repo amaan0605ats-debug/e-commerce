@@ -494,6 +494,8 @@ async function seedDatabase() {
     const hashedPassword = bcrypt.hashSync(adminPass, 10);
 
     const [existingAdmins] = await pool.query('SELECT * FROM admins WHERE email = ?', [adminEmail]);
+    let activePasswordHash = hashedPassword;
+
     if (existingAdmins.length === 0) {
       console.log('Seeding default administrator credentials for aftab@algani...');
       await pool.query(
@@ -501,24 +503,34 @@ async function seedDatabase() {
         ['admin-1', adminEmail, hashedPassword, adminName]
       );
     } else {
-      // Sync password with environment variable
-      console.log('Syncing administrator password with ADMIN_PASSWORD_1 environment variable...');
-      await pool.query(
-        'UPDATE admins SET password = ? WHERE email = ?',
-        [hashedPassword, adminEmail]
-      );
-    }
-    if (existingAdmins.length > 0) {
       const admin = existingAdmins[0];
-      if (bcrypt.compareSync('admin123', admin.password)) {
-        if (process.env.NODE_ENV === 'production') {
-          console.error('\n🚨🚨🚨 SECURITY CRITICAL WARNING 🚨🚨🚨');
-          console.error('⚠️  The administrator account (aftab@algani) is currently using the default password "admin123" in production!');
-          console.error('⚠️  Please change this password IMMEDIATELY via the admin panel /api/auth/change-password endpoint to prevent unauthorized access.');
-          console.error('🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨\n');
-        } else {
-          console.log('[security] Default admin user is active with password "admin123".');
-        }
+      activePasswordHash = admin.password;
+
+      // Overwrite database password ONLY if:
+      // 1. Database password is currently the default "admin123" AND ADMIN_PASSWORD_1 is set to a secure custom value.
+      // 2. OR FORCE_ADMIN_PASSWORD_SYNC env variable is explicitly set to 'true'.
+      const isDbPasswordDefault = bcrypt.compareSync('admin123', admin.password);
+      const shouldSync = (isDbPasswordDefault && adminPass !== 'admin123') || process.env.FORCE_ADMIN_PASSWORD_SYNC === 'true';
+
+      if (shouldSync) {
+        console.log('Syncing administrator password with ADMIN_PASSWORD_1 environment variable...');
+        await pool.query(
+          'UPDATE admins SET password = ? WHERE email = ?',
+          [hashedPassword, adminEmail]
+        );
+        activePasswordHash = hashedPassword;
+      }
+    }
+
+    // Print warning if the active password is still the default one ("admin123")
+    if (bcrypt.compareSync('admin123', activePasswordHash)) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('\n🚨🚨🚨 SECURITY CRITICAL WARNING 🚨🚨🚨');
+        console.error('⚠️  The administrator account (aftab@algani) is currently using the default password "admin123" in production!');
+        console.error('⚠️  Please change this password IMMEDIATELY via the admin panel /api/auth/change-password endpoint to prevent unauthorized access.');
+        console.error('🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨\n');
+      } else {
+        console.log('[security] Default admin user is active with password "admin123".');
       }
     }
 
