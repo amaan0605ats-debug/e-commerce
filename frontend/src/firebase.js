@@ -325,7 +325,10 @@ const getCachedProducts = async (forceRefresh = false) => {
   // Cache for 30 seconds to prevent constant HTTP queries on route switching
   if (!productsCache || forceRefresh || (now - lastCacheTime > 30000)) {
     try {
-      const res = await fetch('/api/products', {
+      // Use public endpoint for visitors, full admin endpoint for authenticated admins
+      const isAdmin = auth.currentUser && auth.currentUser.token;
+      const endpoint = isAdmin ? '/api/products' : '/api/products/public';
+      const res = await fetch(endpoint, {
         headers: getAuthHeaders()
       });
       if (res.ok) {

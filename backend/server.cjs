@@ -44,8 +44,16 @@ if (process.env.NODE_ENV === 'production') {
 
 // Helmet headers configuration
 app.use(helmet({
-  contentSecurityPolicy: false // Disable CSP to maintain full compatibility with Vite scripts & styles
+  contentSecurityPolicy: false, // Disable CSP to maintain full compatibility with Vite scripts & styles
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
+
+// Additional security headers
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  next();
+});
 
 // CORS configuration (limit to production domain & local dev)
 const allowedOrigins = [
@@ -54,7 +62,9 @@ const allowedOrigins = [
   'https://algani-website.onrender.com',
   'https://e-commerce-webite.onrender.com',
   'https://e-commerce-website.onrender.com',
-  'https://ecommerce.onrender.com'
+  'https://ecommerce.onrender.com',
+  'https://algani.co.in',
+  'https://www.algani.co.in'
 ];
 app.use(cors((req, callback) => {
   const origin = req.header('Origin');
@@ -79,6 +89,11 @@ app.use(cors((req, callback) => {
                 originUrl.hostname.includes('e-commerce-website') ||
                 originUrl.hostname.includes('algani-website') ||
                 originUrl.hostname.includes('ecommerce'))) {
+        isAllowed = true;
+      }
+      // Custom domain check
+      else if (originUrl.hostname === 'algani.co.in' ||
+               originUrl.hostname.endsWith('.algani.co.in')) {
         isAllowed = true;
       }
     } catch (e) {}
@@ -840,20 +855,16 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     return res.status(400).json({ error: 'Inputs exceed maximum length' });
   }
 
-  if (email !== 'aftab@algani') {
-    return res.status(401).json({ code: 'auth/user-not-found', error: 'No account found with this email.' });
-  }
-
   try {
     const [rows] = await pool.query('SELECT * FROM admins WHERE email = ?', [email]);
     if (rows.length === 0) {
-      return res.status(401).json({ code: 'auth/user-not-found', error: 'No account found with this email.' });
+      return res.status(401).json({ code: 'auth/invalid-credential', error: 'Invalid email or password.' });
     }
 
     const admin = rows[0];
     const isPasswordValid = bcrypt.compareSync(password, admin.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ code: 'auth/wrong-password', error: 'Incorrect password.' });
+      return res.status(401).json({ code: 'auth/invalid-credential', error: 'Invalid email or password.' });
     }
 
     // Generate JWT token
@@ -1312,8 +1323,19 @@ app.put('/api/orders/:id', requireAuth, async (req, res) => {
   }
 });
 
-// 8. Fetch Product Visibility & Stock Configuration
-app.get('/api/products', async (req, res) => {
+// 8a. Public-safe product visibility (no sensitive inventory/supplier data)
+app.get('/api/products/public', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT slug, stockStatus, visible FROM products');
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch product visibility' });
+  }
+});
+
+// 8. Fetch Product Visibility & Stock Configuration (Admin Only)
+app.get('/api/products', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM products');
     res.json(rows);
@@ -1408,6 +1430,9 @@ app.put('/api/auth/change-password', requireAuth, async (req, res) => {
   }
   if (email.length > 250 || currentPassword.length > 250 || newPassword.length > 250) {
     return res.status(400).json({ error: 'Inputs exceed maximum length' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters long' });
   }
 
   try {
