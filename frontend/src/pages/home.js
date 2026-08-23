@@ -486,33 +486,11 @@ export async function initHome() {
     }
   });
 
-  // 3. Show More button listener
+  // 3. Ensure button initial state
   const showMoreBtn = document.getElementById('btn-show-more-services');
   if (showMoreBtn) {
-    // Clone and replace button to clear previous click event listeners if any (prevents double fire)
-    const newBtn = showMoreBtn.cloneNode(true);
-    showMoreBtn.parentNode.replaceChild(newBtn, showMoreBtn);
-
-    newBtn.addEventListener('click', () => {
-      const hiddenCards = document.querySelectorAll('.services-grid .service-card.service-card-hidden');
-      if (hiddenCards.length > 0) {
-        hiddenCards.forEach(card => {
-          card.style.display = '';
-          card.classList.remove('service-card-hidden');
-          card.classList.add('animate-visible');
-        });
-        newBtn.textContent = 'Show Less Offerings';
-      } else {
-        cards.forEach((card, idx) => {
-          if (idx >= initialShowCount) {
-            card.style.display = 'none';
-            card.classList.add('service-card-hidden');
-          }
-        });
-        newBtn.textContent = 'Show More Offerings';
-        document.getElementById('services-section')?.scrollIntoView({ behavior: 'smooth' });
-      }
-    });
+    showMoreBtn.setAttribute('data-expanded', 'false');
+    showMoreBtn.textContent = 'Show More Offerings';
   }
 
   // 4. Fetch catalog from backend and apply settings (visibility + stock status)

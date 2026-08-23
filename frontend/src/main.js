@@ -560,6 +560,10 @@ const botResponses = {
   md: {
     message: "Understood. Connect directly with our Managing Director, Syed Mir Aftab, to discuss custom contracts or import tenders.",
     text: "Hello Al Gani! I would like to speak directly with Syed Mir Aftab."
+  },
+  kitchen: {
+    message: "Delighted to assist! We provide bespoke European-standard modular kitchens engineered with waterproof HDHMR, soft-close hardware, and quartz countertops across Kashmir. Click below to discuss your layout!",
+    text: "Hello Al Gani! I would like to inquire about your Modular Kitchens catalog and custom 3D design services."
   }
 };
 
@@ -631,6 +635,7 @@ const intentSynonyms = {
   vending: ['vending', 'coffee', 'machine', 'cafevend', 'dispenser', 'brew', 'bean', 'cappuccino', 'hot chocolate', 'maintenance', 'sensor', 'refill', 'vender', 'office machine', 'commercial vending', 'espresso'],
   insulation: ['insulation', 'cold storage', 'thermal', 'polyurethane', 'sandwich panel', 'refrigerated transport', 'freezer room', 'temperature controlled', 'winter logistics', 'insulated material', 'cold room'],
   flooring: ['flooring', 'laminate', 'hardwood', 'wood paneling', 'interior styling', 'timber', 'gulmarg lodge', 'hotel flooring', 'office floor', 'wood sample', 'wooden flooring'],
+  kitchen: ['kitchen', 'modular kitchen', 'kitchens', 'cabinets', 'chimney', 'pantry', 'island kitchen', 'l-shaped kitchen', 'u-shaped kitchen', 'acrylic kitchen', 'pu finish', 'kitchen design', 'kitchen interior', 'blum', 'hettich', 'countertop', 'hdhmr'],
   logistics: ['leh', 'ladakh', 'kargil', 'dispatch', 'freight', 'truck', 'transport', 'srinagar hub', 'freight run', 'high altitude', 'snow routes', 'delivery line', 'cargo convoy'],
   quote: ['wholesale quote', 'price list', 'pricing tiers', 'volume discount', 'contract terms', 'quotation', 'partnership', 'licensing', 'distributor terms', 'bulk order', 'cost sheet', 'pricing'],
   md: ['mir aftab', 'syed aftab', 'ayoub bhat', 'managing director', 'ops director', 'vip escalation', 'founder', 'ceo', 'management contracts', 'syed mir aftab', 'aftab', 'ayoub'],
@@ -744,6 +749,15 @@ Would you like custom B2B bulk pricing or delivery scheduling for "${matchedServ
       followUps = [
         { text: '🪵 Premium wood catalogs', key: 'quote' },
         { text: '👤 Speak with Sourcing Lead', key: 'md' },
+        { text: '🔄 Ask another topic', key: 'restart' }
+      ];
+    } else if (bestIntent === 'kitchen') {
+      chatContext.lastIntent = 'kitchen';
+      responseText = `Regarding bespoke modular kitchens, ${chatContext.userName || 'Client'}: Al Gani crafts luxury European-grade modular kitchens designed for Kashmir's unique climate. We use 100% moisture-resistant HDHMR and boiling-waterproof marine carcasses, authentic Blum/Hettich soft-close hardware, quartz countertops, and finishes ranging from ultra-gloss Acrylic/PU to natural wood veneers. Click below to request our 2026 Modular Kitchen catalog or schedule a 3D layout consultation!`;
+      waTextPrefill = "Hello Al Gani! I would like to request details and catalogs for your bespoke Modular Kitchen solutions.";
+      followUps = [
+        { text: '🍳 Modular Kitchen catalogs', key: 'kitchen' },
+        { text: '📋 Request B2B pricing', key: 'quote' },
         { text: '🔄 Ask another topic', key: 'restart' }
       ];
     } else if (bestIntent === 'logistics') {
@@ -1328,17 +1342,21 @@ document.body.addEventListener('click', (e) => {
   if (!btn) return;
 
   const isExpanded = btn.getAttribute('data-expanded') === 'true';
-  const extraCards = document.querySelectorAll('.services-grid .service-card-extra');
+  const isMobile = window.innerWidth <= 768;
+  const initialShowCount = isMobile ? 3 : 6;
+  const allCards = document.querySelectorAll('.services-grid .service-card');
 
   if (isExpanded) {
     // Collapse extra cards
-    extraCards.forEach(card => {
-      card.style.opacity = '0';
-      card.style.transform = 'translateY(20px) scale(0.95)';
-      card.classList.add('service-card-hidden');
-      setTimeout(() => {
-        card.style.display = 'none';
-      }, 250);
+    allCards.forEach((card, idx) => {
+      if (idx >= initialShowCount) {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px) scale(0.95)';
+        card.classList.add('service-card-hidden');
+        setTimeout(() => {
+          card.style.display = 'none';
+        }, 250);
+      }
     });
 
     btn.textContent = 'Show More Offerings';
@@ -1351,13 +1369,18 @@ document.body.addEventListener('click', (e) => {
     }
   } else {
     // Expand extra cards
-    extraCards.forEach((card, i) => {
-      card.style.display = 'flex';
-      setTimeout(() => {
-        card.classList.remove('service-card-hidden');
-        card.style.opacity = '1';
-        card.style.transform = 'translateY(0) scale(1)';
-      }, i * 40 + 10);
+    allCards.forEach((card, idx) => {
+      if (idx >= initialShowCount) {
+        const isDbHidden = card.getAttribute('data-db-hidden') === 'true';
+        if (!isDbHidden) {
+          card.style.display = 'flex';
+          card.classList.remove('service-card-hidden');
+          setTimeout(() => {
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0) scale(1)';
+          }, (idx - initialShowCount) * 40 + 10);
+        }
+      }
     });
 
     btn.textContent = 'Show Less Offerings';

@@ -46,7 +46,7 @@ export function renderAbout() {
                 <div class="about-stat-label">Key Regions</div>
               </div>
               <div class="about-stat">
-                <div class="about-stat-num">14</div>
+                <div class="about-stat-num">15</div>
                 <div class="about-stat-label">Service Lines</div>
               </div>
               <div class="about-stat">

@@ -534,18 +534,18 @@ async function seedDatabase() {
       }
     }
 
-    // B. Seed default stock and visibility profiles for all 14 service products
+    // B. Seed default stock and visibility profiles for all service products
     const [productRows] = await pool.query('SELECT COUNT(*) as count FROM products');
+    const defaultServices = [
+      'interior-paneling', 'flooring-solutions', 'modular-kitchens', 'insulation-materials', 'general-commercial-supplies',
+      'vending-machine-solutions', 'agriculture-implements', 'laboratory-setup-equipment', 'beekeeping-equipment',
+      'furniture-solutions', 'iot-sensor-agri-solutions', 'dairy-equipment-commissioning',
+      'fisheries-harvesting-equipment', 'high-density-sensor-systems', 'cold-storage-engineering'
+    ];
+
     if (productRows[0].count === 0) {
       console.log('Seeding default service product profiles...');
-      const services = [
-        'interior-paneling', 'flooring-solutions', 'insulation-materials', 'general-commercial-supplies',
-        'vending-machine-solutions', 'agriculture-implements', 'laboratory-setup-equipment', 'beekeeping-equipment',
-        'furniture-solutions', 'iot-sensor-agri-solutions', 'dairy-equipment-commissioning',
-        'fisheries-harvesting-equipment', 'high-density-sensor-systems', 'cold-storage-engineering'
-      ];
-      
-      const insertPromises = services.map((slug, index) => {
+      const insertPromises = defaultServices.map((slug, index) => {
         let initialInventory = 100;
         let threshold = 10;
         let status = 'in-stock';
@@ -570,6 +570,14 @@ async function seedDatabase() {
         );
       });
       await Promise.all(insertPromises);
+    } else {
+      // Ensure modular-kitchens exists if existing DB was seeded prior
+      try {
+        await pool.query(
+          'INSERT IGNORE INTO products (slug, stockStatus, visible, inventoryCount, lowStockThreshold, supplierEmail) VALUES (?, ?, ?, ?, ?, ?)',
+          ['modular-kitchens', 'in-stock', 1, 45, 10, 'supplier@algani.com']
+        );
+      } catch (e) {}
     }
 
     // C. Seed realistic inquiries for premium B2B mockup visuals

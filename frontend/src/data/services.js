@@ -2,7 +2,7 @@ export const serviceCategories = [
   {
     name: 'Core Supply',
     slug: 'core-supply',
-    services: ['interior-paneling', 'flooring-solutions', 'insulation-materials', 'general-commercial-supplies']
+    services: ['interior-paneling', 'flooring-solutions', 'modular-kitchens', 'insulation-materials', 'general-commercial-supplies']
   },
   {
     name: 'Automated Solutions',
@@ -425,6 +425,35 @@ We understand that cold chain integrity is critical in a region where fresh prod
       { caption: 'Modern cold storage facility engineered for Kashmir\'s apple industry' },
       { caption: 'Multi-temperature cold room with advanced monitoring systems' },
       { caption: 'Controlled atmosphere ripening chamber installation' }
+    ]
+  },
+  {
+    id: 15,
+    slug: 'modular-kitchens',
+    name: 'Modular Kitchens',
+    icon: '🍳',
+    category: 'Core Supply',
+    tag: 'Primary Category',
+    shortDesc: 'Bespoke European-grade modular kitchens crafted with moisture-resistant materials, smart storage innovations, and luxury finishes for Kashmir homes and commercial spaces.',
+    longDesc: `Al Gani delivers high-end modular kitchen solutions that seamlessly blend European engineering precision with the warmth and distinct aesthetic of Kashmiri living. Designed for optimal ergonomics, durability, and visual elegance, our modular kitchens are crafted to transform residential homes, luxury villas, boutique hotels, and serviced apartments across Srinagar, the Kashmir Valley, and Ladakh.
+
+We engineer every kitchen using premium moisture-resistant and boiling-waterproof (BWR/HDHMR) core materials specifically chosen to endure Kashmir's seasonal humidity shifts and freezing winter temperatures without warping or delamination. Paired with certified international soft-close hinges, tandem boxes, and motorized lift-ups from world-leading hardware manufacturers like Blum and Hettich, our cabinets guarantee decades of effortless performance.
+
+From sleek handleless acrylic and polyurethane (PU) gloss layouts to warm natural veneer, matte laminates, and timeless shaker designs, our modular solutions offer endless customization. Complete with heat-resistant quartz and seamless granite countertops, integrated smart pantry units, corner carousel organizers, and heavy-duty chimney ventilation, Al Gani provides complete end-to-end design, precision fabrication, delivery, and professional on-site installation.`,
+    features: [
+      'Moisture-resistant HDHMR and boiling-waterproof marine-grade carcass build',
+      'European soft-close hinges, heavy-duty tandem drawers, and hydraulic lift-ups',
+      'Extensive finish selection: Acrylic, PU High-Gloss, Matt Lacquer, & Natural Wood Veneers',
+      'Engineered for Kashmir\'s severe winters with anti-warp and thermal resilience',
+      'Custom space-saving corner carousels, tall pantry pullouts, and spice pullouts',
+      'Stain-resistant quartz, granite, and composite stone countertop integrations',
+      'Turnkey service: 3D design consultation, custom sizing, delivery, and expert installation',
+      'Integrated heavy-duty auto-clean chimney and kitchen appliance provisioning'
+    ],
+    gallery: [
+      { caption: 'Ultra-luxury modern modular kitchen with waterfall quartz island in a Kashmir residence' },
+      { caption: 'Bespoke tall pantry unit with illuminated glass display and integrated oven tower' },
+      { caption: 'Precision soft-close tandem pullout drawers with custom hardwood organizer fittings' }
     ]
   }
 ];
