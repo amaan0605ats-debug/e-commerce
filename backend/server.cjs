@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const dotenv = require('dotenv');
 // Load environment variables from repo root as early as possible
 const envPath = path.join(__dirname, '..', '.env');
@@ -1477,6 +1478,25 @@ app.put('/api/auth/change-password', requireAuth, async (req, res) => {
   }
 });
 
+
+// Dedicated Search Engine Crawler Endpoints
+app.get('/robots.txt', (req, res) => {
+  const robotsPath = path.join(FRONTEND_DIST, 'robots.txt');
+  if (fs.existsSync(robotsPath)) {
+    res.type('text/plain').sendFile(robotsPath);
+  } else {
+    res.type('text/plain').send('User-agent: *\nAllow: /\n\nUser-agent: Googlebot\nAllow: /\n\nUser-agent: Googlebot-Image\nAllow: /\n\nSitemap: https://www.algani.co.in/sitemap.xml\n');
+  }
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const sitemapPath = path.join(FRONTEND_DIST, 'sitemap.xml');
+  if (fs.existsSync(sitemapPath)) {
+    res.type('application/xml').sendFile(sitemapPath);
+  } else {
+    res.status(404).send('Sitemap not found');
+  }
+});
 
 // Built frontend (Vite copies public/ into dist/ on npm run build)
 app.use(express.static(FRONTEND_DIST));
