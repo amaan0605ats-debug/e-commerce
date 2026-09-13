@@ -24,7 +24,7 @@ function quantity(value) {
 }
 
 function safeSlug(slug) {
-  return typeof slug === 'string' && slug.length <= 160 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+  return typeof slug === 'string' && slug.length <= 200 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
 }
 
 function validSlug(slug) {

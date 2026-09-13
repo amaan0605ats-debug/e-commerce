@@ -791,6 +791,29 @@ app.get('/api/custom-services', async (req, res) => {
 });
 
 // Add Manually a Custom Service/Offering & matching catalog product record
+app.put('/api/custom-services/:slug', requireAuth, async (req, res) => {
+  const { name, category, shortDesc, longDesc, features = [], gallery = [] } = req.body;
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(req.params.slug) || req.params.slug.length > 200) return res.status(400).json({ error: 'Invalid offering URL' });
+  for (const [value, limit] of [[name,200],[category,200],[shortDesc,1000],[longDesc,5000]]) {
+    if (typeof value !== 'string' || !value.trim() || value.trim().length > limit) return res.status(400).json({ error: 'Offering fields are missing or exceed their length limits' });
+  }
+  if (!Array.isArray(features) || features.length > 30 || features.some(f => typeof f !== 'string' || f.length > 500)) return res.status(400).json({ error: 'Use at most 30 features, each under 500 characters' });
+  if (!Array.isArray(gallery) || gallery.length > 20 || gallery.some(image => {
+    const value = typeof image === 'string' ? image : image?.url;
+    try { return typeof value !== 'string' || value.length > 2048 || !['http:','https:'].includes(new URL(value).protocol); } catch { return true; }
+  })) return res.status(400).json({ error: 'Use at most 20 valid HTTP or HTTPS image URLs' });
+  try {
+    const [rows] = await pool.query('SELECT slug FROM custom_services WHERE slug = ?', [req.params.slug]);
+    if (!rows.length) {
+      // A saved definition can override a built-in offering without replacing its stock profile.
+      await pool.query('INSERT INTO custom_services (slug, name, category, shortDesc, longDesc, features, gallery, tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [req.params.slug, name.trim(), category.trim(), shortDesc.trim(), longDesc.trim(), JSON.stringify(features), JSON.stringify(gallery), 'Offering']);
+    } else {
+      await pool.query('UPDATE custom_services SET name = ?, category = ?, shortDesc = ?, longDesc = ?, features = ?, gallery = ? WHERE slug = ?', [name.trim(), category.trim(), shortDesc.trim(), longDesc.trim(), JSON.stringify(features), JSON.stringify(gallery), req.params.slug]);
+    }
+    res.json({ success:true, slug:req.params.slug });
+  } catch (error) { console.error(error); res.status(500).json({ error: 'Unable to save offering details' }); }
+});
+
 app.post('/api/custom-services', requireAuth, async (req, res) => {
   let { name, category, icon, shortDesc, longDesc, features, gallery, inventoryCount, lowStockThreshold } = req.body;
   if (!name || !category || !shortDesc || !longDesc) {
@@ -958,7 +981,7 @@ app.post('/api/inquiries', contactLimiter, async (req, res) => {
   if (subject && (typeof subject !== 'string' || subject.trim().length > 200)) {
     return res.status(400).json({ error: 'Subject is too long' });
   }
-  if (service && (typeof service !== 'string' || service.trim().length > 100)) {
+  if (service && (typeof service !== 'string' || service.trim().length > 200)) {
     return res.status(400).json({ error: 'Service slug is too long' });
   }
   if (location && (typeof location !== 'string' || location.trim().length > 200)) {
@@ -1145,7 +1168,7 @@ app.post('/api/orders', requireAuth, async (req, res) => {
 
   // Validate inputs
   if (typeof clientName !== 'string' || !clientName.trim() || clientName.trim().length > 200 ||
-      typeof service !== 'string' || !service.trim() || service.trim().length > 100 ||
+      typeof service !== 'string' || !service.trim() || service.trim().length > 200 ||
       typeof region !== 'string' || !region.trim() || region.trim().length > 200) {
     return res.status(400).json({ error: 'Invalid client name, service, or region' });
   }
@@ -1383,11 +1406,11 @@ app.put('/api/products/:slug', requireAuth, async (req, res) => {
     }
 
     if (rows.length === 0) {
-      const dbStatus = stockStatus || 'in-stock';
+      const dbStatus = stockStatus || 'out-of-stock';
       const dbVisible = visible !== undefined ? (visible ? 1 : 0) : 1;
-      const dbInventory = inventoryCount !== undefined ? parseInt(inventoryCount) : 100;
+      const dbInventory = inventoryCount !== undefined ? parseInt(inventoryCount) : 0;
       const dbThreshold = lowStockThreshold !== undefined ? parseInt(lowStockThreshold) : 10;
-      const dbEmail = supplierEmail || 'supplier@algani.com';
+      const dbEmail = supplierEmail || '';
       
       await pool.query(
         'INSERT INTO products (slug, stockStatus, visible, inventoryCount, lowStockThreshold, supplierEmail) VALUES (?, ?, ?, ?, ?, ?)',

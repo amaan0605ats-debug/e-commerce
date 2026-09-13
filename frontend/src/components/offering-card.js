@@ -1,8 +1,18 @@
+import { getServiceBySlug, services } from '../data/services.js';
+const builtInImageSlugs = new Set(services.map(service => service.slug));
+
 export function escapeHtml(value = '') {
   return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 export function serviceImage(slug, variant = '') {
-  return /^[a-z0-9-]+$/.test(slug) ? `/images/${slug}${variant}.webp` : '/images/general-commercial-supplies.webp';
+  const gallery = getServiceBySlug(slug)?.gallery;
+  const index = variant ? Number(variant.slice(1)) - 1 : 0;
+  const image = gallery?.[index];
+  const url = typeof image === 'string' ? image : image?.url;
+  if (url) {
+    try { const parsed = new URL(url); if (['https:', 'http:'].includes(parsed.protocol)) return escapeHtml(parsed.href); } catch { /* Use the local image fallback. */ }
+  }
+  return builtInImageSlugs.has(slug) && /^[a-z0-9-]+$/.test(slug) ? `/images/${slug}${variant}.webp` : '/images/general-commercial-supplies.webp';
 }
 export function offeringCard(service) {
   const name = escapeHtml(service.name);

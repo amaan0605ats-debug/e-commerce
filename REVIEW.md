@@ -41,7 +41,15 @@ Rechecked the tablet menu, catalog search, gallery enlargement and Escape dismis
 
 MySQL is present locally but rejects the unconfigured connection. No application database credentials or email credentials are configured in this checkout. Tests use recorded database adapters and do not prove real transaction isolation, schema setup, authenticated admin workflows or email delivery. Configure a test database and mail service before production rollout. Inventory quantities are explicitly maintained by administrators until real order quantities are modeled.
 
-All changes are local and have not been pushed or deployed. Existing product descriptions and the downloadable company profile remain supplied repository content; specifications and commercial terms must be confirmed by the business.
+The initial storefront redesign was published on main in commit 4044f54. Existing product descriptions and the downloadable company profile remain supplied repository content; specifications and commercial terms must be confirmed by the business.
+
+## Admin workspace redesign
+
+Replaced the legacy admin interface with a responsive ivory, charcoal and olive workspace and matching sign-in screen. Dashboard figures and six-month activity now use actual records. Search, status filters and filtered CSV exports cover inquiries, deliveries, partners and catalog. Inventory forms preserve zero values, support quantities above 250, edit supplier emails and save only on explicit submission. Inquiry archiving is recoverable; linked delivery creation prevents a second conversion. Native dialogs provide keyboard dismissal and retain form values on failure. Password controls match the API's 8-character / 72-byte requirements. The previous client-only email and debug switches were removed because they did not control server behavior.
+
+Added authenticated offering-detail editing for both built-in and custom entries without replacing stock profiles. Public cards and detail galleries use saved image URLs; new entries without images use the general supply illustration. New product profiles no longer invent stock or a supplier address. New read requests are cancelled before saving, preventing stale responses from overwriting freshly saved data. CSV cells neutralize spreadsheet formula prefixes.
+
+Validation: 69 tests pass, including admin metrics, filtering, inventory boundaries, CSV escaping, save/read races, unmount cancellation, offering overrides and URL validation. Production build passes. Browser checks used an isolated, temporary sample-data harness for desktop/mobile layout, inventory success and failure, inquiry-to-delivery linking, archive recovery, catalog creation and unavailable-database recovery. The temporary harness was removed before publication. The actual login page was visually checked without credentials. No production customer data was changed, and real authenticated database/email integration remains unverified locally.
 
 ## Logo source
 Original: frontend/public/images/algani-brand.png

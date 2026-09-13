@@ -207,5 +207,5 @@ export {
   auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged,
   collection, addDoc, getDocs, getDoc, doc, updateDoc,
   query, orderBy, where, onSnapshot, serverTimestamp, setDoc,
-  changePassword, getCachedProducts,
+  changePassword, getCachedProducts, request,
 };

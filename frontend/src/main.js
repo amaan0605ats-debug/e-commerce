@@ -67,24 +67,27 @@ router.handleRoute();
     const rows=await response.json();if(!Array.isArray(rows))return;
     const added=[];
     for(const row of rows){
-      if(!row||!/^([a-z0-9]+-)*[a-z0-9]+$/.test(row.slug)||typeof row.name!=='string'||services.some(s=>s.slug===row.slug))continue;
-      services.push({id:services.length+1,slug:row.slug,name:row.name,icon:typeof row.icon==='string'?row.icon:'',category:String(row.category||'Core Supply'),tag:String(row.tag||'Offering'),shortDesc:String(row.shortDesc||''),longDesc:String(row.longDesc||''),features:Array.isArray(row.features)?row.features.filter(f=>typeof f==='string'):[],gallery:Array.isArray(row.gallery)?row.gallery:[]});
+      if(!row||!/^([a-z0-9]+-)*[a-z0-9]+$/.test(row.slug)||typeof row.name!=='string')continue;
+      const existing=services.findIndex(s=>s.slug===row.slug);
+      const service={id:existing>=0?services[existing].id:services.length+1,slug:row.slug,name:row.name,icon:typeof row.icon==='string'?row.icon:'',category:String(row.category||'Core Supply'),tag:String(row.tag||'Offering'),shortDesc:String(row.shortDesc||''),longDesc:String(row.longDesc||''),features:Array.isArray(row.features)?row.features.filter(f=>typeof f==='string'):[],gallery:Array.isArray(row.gallery)?row.gallery:[]};
+      if(existing>=0)services[existing]=service;else services.push(service);
       const category=serviceCategories.find(c=>c.name===row.category);if(category&&!category.services.includes(row.slug))category.services.push(row.slug);
-      added.push(services[services.length-1]);
+      added.push(service);
     }
     if(added.length){
-      const grid=document.querySelector('.catalog-grid');
+      const grid=document.querySelector('.catalog-grid') || document.querySelector('.home-offerings');
       if(grid){
-        for(const service of added){const holder=document.createElement('div');holder.innerHTML=offeringCard(service);grid.appendChild(holder.firstElementChild);}
+        for(const service of added){const holder=document.createElement('div');holder.innerHTML=offeringCard(service);const previous=[...grid.children].find(card=>card.dataset.slug===service.slug);if(previous)previous.replaceWith(holder.firstElementChild);else if(grid.classList.contains('catalog-grid'))grid.appendChild(holder.firstElementChild);}
         filterCatalog();
         getCachedProducts().then(products=>{if(!grid.isConnected)return;grid.querySelectorAll('.offering-card').forEach(card=>applyProductStatus(card,products.find(p=>p.slug===card.dataset.slug)));filterCatalog();});
       }
       const select=document.getElementById('form-service');
-      if(select){for(const service of added){const option=document.createElement('option');option.value=service.slug;option.textContent=service.name;select.appendChild(option);}}
+      if(select){for(const service of added){let option=[...select.options].find(o=>o.value===service.slug);if(!option){option=document.createElement('option');option.value=service.slug;select.appendChild(option);}option.textContent=service.name;}}
       refreshContactPrefill();
       initQuoteList();
       document.dispatchEvent(new CustomEvent('quotechange',{detail:{reason:'catalog'}}));
       if(document.querySelector('.missing-offering'))router.handleRoute();
+      else if(document.querySelector('.detail-page')&&added.some(s=>s.slug===document.querySelector('.detail-page').dataset.service))router.handleRoute();
     }
   }catch{/* The built-in catalog remains available if the API is offline. */}
 })();

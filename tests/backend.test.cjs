@@ -5,6 +5,33 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createRequire } = require('node:module');
 
+test('catalog detail updates validate image URLs and preserve inventory', async () => {
+  const app = setup(async sql => sql.startsWith('SELECT slug') ? [[{slug:'modular-kitchens'}]] : [[]]);
+  const body = { name:'Updated kitchen', category:'Core Supply', shortDesc:'Summary', longDesc:'Detailed specifications', features:['Durable'], gallery:['https://example.com/kitchen.webp'] };
+  assert.equal((await app.invoke('put','/api/custom-services/:slug',{...body,gallery:['javascript:alert(1)']},{slug:'modular-kitchens'})).statusCode,400);
+  assert.equal(app.calls.length,0);
+  assert.equal((await app.invoke('put','/api/custom-services/:slug',body,{slug:'modular-kitchens'})).statusCode,200);
+  assert.equal(app.calls.length,2);
+  assert.match(app.calls[1].sql,/UPDATE custom_services/);
+  assert.ok(!app.calls.some(call=>/UPDATE products|DELETE|INSERT INTO products/.test(call.sql)));
+});
+
+test('editing a built-in offering saves an override without inventing stock', async () => {
+  const app=setup();
+  const response=await app.invoke('put','/api/custom-services/:slug',{name:'Flooring',category:'Core Supply',shortDesc:'Flooring options',longDesc:'Detailed flooring options',features:[],gallery:[]},{slug:'flooring-solutions'});
+  assert.equal(response.statusCode,200);
+  assert.match(app.calls[1].sql,/INSERT INTO custom_services/);
+  assert.equal(app.calls.length,2);
+});
+
+test('a new product profile defaults to zero quantity with no invented supplier', async () => {
+  const app=setup();
+  const response=await app.invoke('put','/api/products/:slug',{visible:false},{slug:'flooring-solutions'});
+  assert.equal(response.statusCode,200);
+  const args=app.calls.find(call=>call.sql.startsWith('INSERT INTO products')).args;
+  assert.equal(args[1],'out-of-stock');assert.equal(args[3],0);assert.equal(args[5],'');
+});
+
 // Execute real route handlers with a recorded database adapter. No credentials,
 // database connections, listening sockets, or customer emails are used.
 function setup(query = async () => [[]], { resolveProductName = async (_pool, data) => data.productName || data.slug } = {}) {
