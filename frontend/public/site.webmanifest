@@ -1,21 +1,26 @@
 {
-  "name": "Al Gani — General Supplier & Distributors",
+  "name": "Al Gani General Suppliers",
   "short_name": "Al Gani",
   "description": "Interiors, equipment and commercial supplies for businesses in Kashmir and Leh.",
   "start_url": "/",
   "icons": [
     {
-      "src": "/images/algani-mark-192.png",
+      "src": "/favicon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/images/algani-icon-512.png",
+      "src": "/favicon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "theme_color": "#f6f3eb",
   "background_color": "#f6f3eb",
-  "display": "standalone"
+  "display": "standalone",
+  "id": "/",
+  "scope": "/",
+  "lang": "en"
 }

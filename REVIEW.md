@@ -64,3 +64,10 @@ Prompt: Use case: logo-brand. Create a polished standalone website brand emblem 
 - Public database metadata is cached for 30 seconds; fallback built-in content keeps public pages available during database outages.
 - Validation: 74 tests pass, production build passes, direct HTTP rendering and browser contact preselection/back navigation verified locally.
 - Free promotional copy in FREE-PROMOTION.md; no paid campaign or social messages sent.
+
+## Favicon and crawl reliability — September 13, 2026
+- Google Search Console live homepage test: crawl allowed Yes, page fetch Successful, indexing allowed Yes. Settings reports all robots files valid. The blocked warning belongs to the older indexed snapshot.
+- Serve one tracked robots.txt source independently of built assets and database availability, with explicit cache revalidation.
+- Replace the PNG disguised as favicon.ico with a real ICO containing 32/48/96 pixel images. Declare the existing high-contrast AG icons consistently for browsers, Apple touch icons and the web manifest.
+- Add application names and WebSite structured data for the Al Gani site identity.
+- Validation: 76 tests and production build pass.

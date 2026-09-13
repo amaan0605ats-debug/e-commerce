@@ -23,3 +23,16 @@ test('metadata escapes untrusted catalog titles and uses a real fallback preview
  const seo=seoForPath('/services/new-item',[{slug:'new-item',name:'</script><script>alert(1)</script>',shortDesc:'" & <bad>'}]);
  const html=seoHtml(template,seo);assert.doesNotMatch(html,/<script>alert/);assert.match(html,/\\u003c/);assert.ok(seo.image.endsWith('/modular-kitchens.webp'));
 });
+
+test('favicon is a genuine multi-resolution ICO and declarations point at valid square PNG files',()=>{
+ const ico=fs.readFileSync('frontend/public/favicon.ico');
+ assert.equal(ico.readUInt16LE(0),0);assert.equal(ico.readUInt16LE(2),1);assert.equal(ico.readUInt16LE(4),3);
+ for(let i=0;i<3;i++){
+  const entry=6+i*16,size=ico[entry],length=ico.readUInt32LE(entry+8),offset=ico.readUInt32LE(entry+12);
+  const data=ico.subarray(offset,offset+length);assert.equal(data.subarray(1,4).toString(),'PNG');assert.equal(data.readUInt32BE(16),size);assert.equal(data.readUInt32BE(20),size);
+ }
+ const manifest=JSON.parse(fs.readFileSync('frontend/public/site.webmanifest','utf8'));
+ const icons=[...template.matchAll(/<link rel="(?:icon|apple-touch-icon)"[^>]*href="([^"]+)"/g)].map(m=>m[1]);
+ for(const icon of [...icons,...manifest.icons.map(i=>i.src)])assert.ok(fs.existsSync('frontend/public'+icon),icon);
+ for(const icon of manifest.icons){const data=fs.readFileSync('frontend/public'+icon.src);assert.equal(icon.sizes,`${data.readUInt32BE(16)}x${data.readUInt32BE(20)}`);}
+});

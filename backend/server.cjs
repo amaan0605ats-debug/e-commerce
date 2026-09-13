@@ -1503,14 +1503,11 @@ app.put('/api/auth/change-password', requireAuth, async (req, res) => {
 });
 
 
-// Dedicated Search Engine Crawler Endpoints
+// Serve the tracked crawl rules directly: independent of Vite output and the DB.
+const robotsText = fs.readFileSync(path.join(__dirname, '../frontend/public/robots.txt'), 'utf8');
 app.get('/robots.txt', (req, res) => {
-  const robotsPath = path.join(FRONTEND_DIST, 'robots.txt');
-  if (fs.existsSync(robotsPath)) {
-    res.type('text/plain').sendFile(robotsPath);
-  } else {
-    res.type('text/plain').send('User-agent: *\nAllow: /\n\nUser-agent: Googlebot\nAllow: /\n\nUser-agent: Googlebot-Image\nAllow: /\n\nSitemap: https://www.algani.co.in/sitemap.xml\n');
-  }
+  res.set('Cache-Control', 'no-cache, max-age=0, must-revalidate');
+  res.type('text/plain').send(robotsText);
 });
 
 const publicPages = () => import('./lib/public-pages.mjs');

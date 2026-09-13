@@ -20,7 +20,7 @@ export function seoForPath(path, catalog=services) {
  let image=SITE_URL+'/images/modular-kitchens.webp';const first=service?.gallery?.[0], candidate=typeof first==='string'?first:first?.url;
  if(candidate){try{const url=new URL(candidate);if(['https:','http:'].includes(url.protocol))image=url.href;}catch{}}
  else if(service && builtInSlugs.has(service.slug))image=SITE_URL+`/images/${service.slug}.webp`;
- const structuredData=noindex?null:{'@context':'https://schema.org','@graph':[company,{'@type':service?'Service':'WebPage','@id':SITE_URL+clean+'#page',name:pair[0],description:pair[1],url:SITE_URL+clean,...(service?{serviceType:service.name,provider:{'@id':company['@id']},areaServed:company.areaServed}:{about:{'@id':company['@id']}})}]};
+ const structuredData=noindex?null:{'@context':'https://schema.org','@graph':[company,{'@type':'WebSite','@id':SITE_URL+'/#website',url:SITE_URL+'/',name:'Al Gani',alternateName:'Al Gani General Suppliers',publisher:{'@id':company['@id']}},{'@type':service?'Service':'WebPage','@id':SITE_URL+clean+'#page',name:pair[0],description:pair[1],url:SITE_URL+clean,...(service?{serviceType:service.name,provider:{'@id':company['@id']},areaServed:company.areaServed}:{about:{'@id':company['@id']}})}]};
  return {path:clean,title:pair[0],description:pair[1],url:SITE_URL+clean,image,noindex,structuredData};
 }
 export function updateSeo(path) {

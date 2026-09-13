@@ -73,7 +73,7 @@ function setup(query = async () => [[]], { resolveProductName = async (_pool, da
   };
   vm.runInNewContext(fs.readFileSync(filename, 'utf8') + '\npool = testDatabase; databaseReady = true;', sandbox, { filename });
   async function invoke(method, route, body = {}, params = {}, admin = { id: 'admin-1', email: 'aftab@algani' }) {
-    const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(data) { this.body = data; return this; } };
+    const response = { headers: {}, set(key,value) { this.headers[key]=value; return this; }, type(value) { this.contentType=value; return this; }, send(value) { this.body=value; return this; }, statusCode: 200, status(code) { this.statusCode = code; return this; }, json(data) { this.body = data; return this; } };
     const handler = routes.get(`${method} ${route}`).at(-1);
     await handler({ body, params, admin }, response);
     return response;
@@ -185,7 +185,7 @@ test('password changes cannot target another administrator or truncate long UTF-
 test('missing request bodies and malformed JSON return useful 400 responses', () => {
   const app = setup();
   const guard = app.middleware.find(args => args[0] === '/api')[1];
-  const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(value) { this.body = value; } };
+  const response = { headers: {}, set(key,value) { this.headers[key]=value; return this; }, type(value) { this.contentType=value; return this; }, send(value) { this.body=value; return this; }, statusCode: 200, status(code) { this.statusCode = code; return this; }, json(value) { this.body = value; } };
   guard({ method: 'POST', body: undefined }, response, () => assert.fail('Invalid body passed validation'));
   assert.equal(response.statusCode, 400);
   const errors = app.middleware.at(-1)[0];
@@ -202,7 +202,19 @@ test('bodyless dashboard actions reach their handlers while data updates still r
     guard({ method: 'PUT', path, body: undefined }, { status: () => assert.fail('Bodyless action rejected') }, () => { called = true; });
     assert.equal(called, true);
   }
-  const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json() {} };
+  const response = { headers: {}, set(key,value) { this.headers[key]=value; return this; }, type(value) { this.contentType=value; return this; }, send(value) { this.body=value; return this; }, statusCode: 200, status(code) { this.statusCode = code; return this; }, json() {} };
   guard({ method: 'PUT', path: '/products/furniture', body: undefined }, response, () => assert.fail('Missing product data accepted'));
   assert.equal(response.statusCode, 400);
+});
+
+
+test('robots response uses tracked crawl rules without database queries and revalidates caches', async () => {
+ const app=setup(async()=>{throw new Error('Database unavailable');});
+ const response=await app.invoke('get','/robots.txt');
+ assert.equal(response.statusCode,200);assert.equal(response.contentType,'text/plain');
+ assert.equal(response.body,fs.readFileSync('frontend/public/robots.txt','utf8'));
+ assert.match(response.headers['Cache-Control'],/must-revalidate/);
+ assert.equal(app.calls.length,0);
+ const blocked=[...response.body.matchAll(/^Disallow:\s*(.*)$/gm)].map(m=>m[1].trim());
+ for(const publicPath of ['/','/services','/favicon.ico','/favicon-96.png','/sitemap.xml'])assert.equal(blocked.some(rule=>rule && publicPath.startsWith(rule)),false);
 });
