@@ -1513,29 +1513,35 @@ app.get('/robots.txt', (req, res) => {
   }
 });
 
-app.get('/sitemap.xml', (req, res) => {
-  const sitemapPath = path.join(FRONTEND_DIST, 'sitemap.xml');
-  if (fs.existsSync(sitemapPath)) {
-    res.type('application/xml').sendFile(sitemapPath);
-  } else {
-    res.status(404).send('Sitemap not found');
-  }
+const publicPages = () => import('./lib/public-pages.mjs');
+let searchCatalogCache = null;
+async function searchCatalog() {
+ const pages = await publicPages();
+ if (!databaseReady || !pool) return pages.catalog();
+ if (searchCatalogCache && Date.now() - searchCatalogCache.time < 30000) return searchCatalogCache.items;
+ try {
+  const [[custom], [products]] = await Promise.all([pool.query('SELECT * FROM custom_services'), pool.query('SELECT slug, visible FROM products')]);
+  const items = pages.catalog(custom, products);
+  searchCatalogCache = { time: Date.now(), items };
+  return items;
+ } catch { return searchCatalogCache?.items || pages.catalog(); }
+}
+app.get('/sitemap.xml', async (req, res, next) => {
+ try { const pages = await publicPages(); res.type('application/xml').send(pages.sitemap(await searchCatalog())); }
+ catch (error) { next(error); }
 });
-
-// Built frontend (Vite copies public/ into dist/ on npm run build)
-app.use('/api', (req, res) => {
-  res.status(404).json({ error: 'API endpoint not found' });
-});
-app.use(express.static(FRONTEND_DIST));
-
-// Redirect route for SPA index.html matching fallback
-app.use((req, res) => {
-  res.sendFile(path.join(FRONTEND_DIST, 'index.html'), (err) => {
-    // If not built yet, return simple startup success message
-    if (err) {
-      res.status(200).send('Al Gani API server running! Client files will build on startup.');
-    }
-  });
+app.use('/api', (req, res) => res.status(404).json({ error: 'API endpoint not found' }));
+app.use(express.static(FRONTEND_DIST, { index: false }));
+app.use(async (req, res, next) => {
+ if (!['GET', 'HEAD'].includes(req.method)) return res.status(405).send('Method not allowed');
+ if (req.path.includes('.')) return res.status(404).send('Not found');
+ try {
+  const template = await fs.promises.readFile(path.join(FRONTEND_DIST, 'index.html'), 'utf8');
+  const pages = await publicPages();
+  const result = pages.renderPublicPage(template, req.path, await searchCatalog());
+  if (result.noindex) res.set('X-Robots-Tag', 'noindex, follow');
+  res.status(result.status).type('html').send(result.html);
+ } catch (error) { next(error); }
 });
 
 // Global error handling middleware (prevents stack trace disclosure)

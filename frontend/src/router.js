@@ -4,10 +4,27 @@ export class Router {
     this.currentPath = '';
     this.lastRenderedHash = null;
     window.addEventListener('hashchange', () => this.handleRoute());
+    window.addEventListener('popstate', () => this.handleRoute());
+    document.addEventListener?.('click', event => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target.closest('a[href]');
+      if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
+      const href = link.getAttribute('href');
+      if (!href?.startsWith('/') || href.startsWith('//')) return;
+      const url = new URL(href, window.location.href);
+      if (url.origin !== window.location.origin || !this.routes.some(route => this.matchRoute(route.path,url.pathname.replace(/\/+$/, '') || '/'))) return;
+      event.preventDefault();
+      this.navigate(url.pathname + url.search);
+    });
   }
 
   navigate(path) {
-    window.location.hash = path;
+    if (window.history?.pushState) { window.history.pushState(null, '', path.replace(/^#/, '')); this.handleRoute(); }
+    else window.location.hash = path;
+  }
+
+  routeLocation() {
+    return window.location.hash?.startsWith('#/') ? window.location.hash.slice(1) : (window.location.pathname || '/') + (window.location.search || '');
   }
 
   handleRoute() {
@@ -15,7 +32,8 @@ export class Router {
     clearTimeout(this.enterTimer);
     this.scrollObserver?.disconnect();
 
-    const rawHash = window.location.hash.slice(1) || '/';
+    const rawHash = this.routeLocation();
+    if (window.location.hash?.startsWith('#/') && !rawHash.startsWith('//')) window.history?.replaceState(null, '', rawHash);
     const hash = rawHash.split('?')[0].replace(/\/+$/, '') || '/';
     this.currentPath = hash;
     let matchedRoute = null;
@@ -37,10 +55,10 @@ export class Router {
 
     this.renderTimer = setTimeout(() => {
       // The URL can change before its queued hashchange handler runs.
-      if ((window.location.hash.slice(1) || '/') !== rawHash) return;
+      if (this.routeLocation() !== rawHash) return;
       const content = matchedRoute?.render ? matchedRoute.render(params) : this.renderNotFound();
       // A route renderer may redirect (for example, the admin auth guard).
-      if ((window.location.hash.slice(1) || '/') !== rawHash) return;
+      if (this.routeLocation() !== rawHash) return;
       app.innerHTML = '';
       if (typeof content === 'string') {
         app.innerHTML = content;
@@ -78,8 +96,8 @@ export class Router {
           <h1>Let's get you<br>back on track.</h1>
           <p>This page may have moved, or the link may be incomplete. Explore our offerings or tell us what you are looking for.</p>
           <div class="not-found-actions">
-            <a href="#/services" class="btn btn-primary">Explore offerings <span aria-hidden="true">↗</span></a>
-            <a href="#/" class="btn btn-secondary">Back to home</a>
+            <a href="/services" class="btn btn-primary">Explore offerings <span aria-hidden="true">↗</span></a>
+            <a href="/" class="btn btn-secondary">Back to home</a>
           </div>
         </div>
       </section>
@@ -142,7 +160,7 @@ export class Router {
     const hash = this.currentPath;
     document.querySelectorAll('.nav-link').forEach(link => {
       const href = link.getAttribute('href');
-      const linkPath = href?.startsWith('#') ? href.slice(1) : null;
+      const linkPath = href?.startsWith('#/') ? href.slice(1) : href?.startsWith('/') ? href : null;
       const isExact = hash === linkPath;
       const isActive = linkPath !== null && (isExact || (linkPath !== '/' && hash.startsWith(`${linkPath}/`)));
       link.classList.toggle('active', isActive);

@@ -52,8 +52,8 @@ test('an unknown URL renders a recovery page without interpolating the URL', () 
   router.handleRoute();
   flush();
   assert.match(app.innerHTML, /404/);
-  assert.match(app.innerHTML, /href="#\/services"/);
-  assert.match(app.innerHTML, /href="#\/"/);
+  assert.match(app.innerHTML, /href="\/services"/);
+  assert.match(app.innerHTML, /href="\/"/);
   assert.doesNotMatch(app.innerHTML, /<script>/);
   assert.notEqual(app.innerHTML, 'home');
 });
@@ -166,4 +166,14 @@ test('content is visible with reduced motion or without IntersectionObserver', (
     assert.equal(visible, true);
     assert.equal(observers.length, 0);
   }
+});
+
+test('history navigation and legacy bookmarks retain path queries', () => {
+ const {router,context,app,flush}=setup();
+ const assign=path=>{const url=new URL(path,'https://example.test');Object.assign(context.window.location,{hash:url.hash,pathname:url.pathname,search:url.search});};
+ context.window.history={pushState:(_s,_t,path)=>assign(path),replaceState:(_s,_t,path)=>assign(path)};
+ context.window.location.hash='#/contact?quote=1';router.handleRoute();flush();
+ assert.equal(context.window.location.hash,'');assert.equal(context.window.location.search,'?quote=1');assert.equal(app.innerHTML,'contact');
+ router.navigate('/services');flush();assert.equal(app.innerHTML,'offerings');assert.equal(context.window.location.pathname,'/services');
+ assign('/contact?quote=1');router.handleRoute();flush();assert.equal(app.innerHTML,'contact');
 });

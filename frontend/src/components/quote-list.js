@@ -164,7 +164,7 @@ function showNotice(message) {
   const text = document.createElement('span');
   text.textContent = message;
   const link = document.createElement('a');
-  link.href = '#/quote';
+  link.href = '/quote';
   link.textContent = 'View shortlist →';
   notice.append(text, link);
   notice.hidden = false;

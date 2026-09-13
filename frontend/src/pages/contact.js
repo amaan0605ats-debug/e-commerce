@@ -16,7 +16,7 @@ export function refreshContactPrefill() {
     form.addEventListener('input', trackEdit);
     form.addEventListener('change', trackEdit);
   }
-  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const params = new URLSearchParams(location.hash.startsWith('#/') ? location.hash.split('?')[1] || '' : location.search || '');
   const service = form.querySelector('#form-service');
   if (!edited.has(service.id) && [...service.options].some(option => option.value === params.get('service'))) {
     service.value = params.get('service');
@@ -46,7 +46,7 @@ export function renderContact() {
       <div class="container">
         <div class="page-hero-content animate-on-scroll">
           <div class="breadcrumb">
-            <a href="#/">Home</a>
+            <a href="/">Home</a>
             <span class="breadcrumb-sep">◆</span>
             <span>Contact</span>
           </div>
@@ -301,7 +301,7 @@ export function initContact() {
                 Your message regarding <strong>${safeSubject}</strong> ${safeServiceName ? `for <em>${safeServiceName}</em>` : ''} has been received by Al Gani. Our dedicated team will review your inquiry and reach out to discuss the next steps.
               </p>
               <div style="margin-top: 12px;">
-                <a href="#/" class="btn btn-primary" style="font-size: 11px; letter-spacing: 2px; padding: 10px 24px; border-radius: 30px;">Return to Home</a>
+                <a href="/" class="btn btn-primary" style="font-size: 11px; letter-spacing: 2px; padding: 10px 24px; border-radius: 30px;">Return to Home</a>
               </div>
             </div>
           `;

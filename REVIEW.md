@@ -56,3 +56,11 @@ Original: frontend/public/images/algani-brand.png
 Web assets: algani-mark-192.png, algani-icon-48.png, algani-icon-512.png in the same directory.
 Method: built-in image-generation tool; resized for web delivery with Sharp.
 Prompt: Use case: logo-brand. Create a polished standalone website brand emblem for Al Gani, a B2B general supplier in Kashmir. A distinctive interlocking AG monogram with a subtle mountain peak integrated into the A, clean geometric luxury editorial design, strong readable silhouette at small size. Flat warm champagne gold #D8B56A on solid deep chocolate #211710 background. Square image, centered single emblem occupying 75% of canvas. No text beyond the AG monogram, no mockup, no gradients, no shadows, no border, no texture. This will be used as the navigation logo and app icon.
+
+## Google visibility update — September 13, 2026
+- Clean History API routes with compatibility for existing hash bookmarks.
+- Server-rendered public page content, unique canonical titles/descriptions, social previews and LocalBusiness/Service structured data.
+- Dynamic sitemap includes visible built-in and custom offerings; admin and quote pages carry noindex. Missing pages return HTTP 404.
+- Public database metadata is cached for 30 seconds; fallback built-in content keeps public pages available during database outages.
+- Validation: 74 tests pass, production build passes, direct HTTP rendering and browser contact preselection/back navigation verified locally.
+- Free promotional copy in FREE-PROMOTION.md; no paid campaign or social messages sent.

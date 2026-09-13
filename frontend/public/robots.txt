@@ -1,15 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /api/
 
-User-agent: Googlebot
-Allow: /
-
-User-agent: Googlebot-Image
-Allow: /
-
-User-agent: Mediapartners-Google
-Allow: /
-
-# Sitemap Location
 Sitemap: https://www.algani.co.in/sitemap.xml
-Sitemap: https://algani.co.in/sitemap.xml

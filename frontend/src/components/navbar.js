@@ -13,7 +13,7 @@ export function createNavbar() {
 
   nav.innerHTML = `
     <div class="nav-container">
-      <a href="#/" class="nav-logo" id="nav-logo" aria-label="Al Gani General Suppliers — home">
+      <a href="/" class="nav-logo" id="nav-logo" aria-label="Al Gani General Suppliers — home">
         <img class="brand-mark" src="/images/algani-mark-192.png" alt="" width="48" height="48">
         <span class="nav-brand-copy">
           <span class="nav-logo-text">AL GANI<span class="nav-logo-dot" aria-hidden="true">.</span></span>
@@ -22,12 +22,12 @@ export function createNavbar() {
       </a>
 
       <div class="nav-links" id="nav-links">
-        ${navigation.map(item => `<a href="#${item.path}" class="nav-link" id="nav-${item.id}">${item.label}</a>`).join('')}
+        ${navigation.map(item => `<a href="${item.path}" class="nav-link" id="nav-${item.id}">${item.label}</a>`).join('')}
       </div>
 
       <div class="nav-actions">
-        <a href="#/quote" class="nav-quote nav-link" id="nav-quote">Your list <span class="quote-count" data-quote-count>0</span></a>
-        <a href="#/contact" class="nav-cta" id="nav-cta-btn">Request a quote <span aria-hidden="true">↗</span></a>
+        <a href="/quote" class="nav-quote nav-link" id="nav-quote">Your list <span class="quote-count" data-quote-count>0</span></a>
+        <a href="/contact" class="nav-cta" id="nav-cta-btn">Request a quote <span aria-hidden="true">↗</span></a>
         <button type="button" class="nav-hamburger" id="nav-hamburger" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobile-menu">
           <span class="hamburger-line"></span>
           <span class="hamburger-line"></span>
@@ -38,9 +38,9 @@ export function createNavbar() {
 
     <div class="mobile-menu" id="mobile-menu" hidden inert aria-hidden="true">
       <div class="mobile-menu-inner">
-        ${navigation.map(item => `<a href="#${item.path}" class="mobile-link nav-link" id="mobile-${item.id}">${item.label}</a>`).join('')}
-        <a href="#/quote" class="mobile-link nav-link" id="mobile-quote">Your quote list <span class="quote-count" data-quote-count>0</span></a>
-        <a href="#/contact" class="mobile-cta" id="mobile-cta-btn">Request a quote <span aria-hidden="true">↗</span></a>
+        ${navigation.map(item => `<a href="${item.path}" class="mobile-link nav-link" id="mobile-${item.id}">${item.label}</a>`).join('')}
+        <a href="/quote" class="mobile-link nav-link" id="mobile-quote">Your quote list <span class="quote-count" data-quote-count>0</span></a>
+        <a href="/contact" class="mobile-cta" id="mobile-cta-btn">Request a quote <span aria-hidden="true">↗</span></a>
       </div>
     </div>
   `;
@@ -70,7 +70,7 @@ export function createNavbar() {
     const link = event.target.closest('a[href]');
     if (!link) return;
     // Same-page links do not fire hashchange, so return focus to a visible control.
-    const samePage = link.hash === (window.location.hash || '#/');
+    const samePage = (link.hash && link.hash === window.location.hash) || link.getAttribute('href') === (window.location.pathname || '/') + (window.location.search || '');
     setMenuOpen(false, samePage && mobileMenu.contains(link));
   });
 
@@ -91,13 +91,14 @@ export function createNavbar() {
   });
 
   window.addEventListener('hashchange', () => setMenuOpen(false));
+  window.addEventListener('popstate', () => setMenuOpen(false));
   window.addEventListener('resize', () => {
     if (isOpen && getComputedStyle(hamburger).display === 'none') setMenuOpen(false);
   });
 
   nav.querySelector('#nav-logo').addEventListener('click', event => {
     setMenuOpen(false);
-    if (!window.location.hash || window.location.hash === '#/') {
+    if (window.location.hash === '#/' || (!window.location.hash && (!window.location.pathname || window.location.pathname === '/'))) {
       event.preventDefault();
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       window.scrollTo({ top: 0, behavior: reducedMotion ? 'instant' : 'smooth' });

@@ -180,6 +180,6 @@ test('quote page escapes catalog content and keeps inquiry preparation on the si
   assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt; &quot;custom&quot;'));
   assert.ok(!html.includes('<script>'));
   assert.ok(html.includes('Core &amp; supply'));
-  assert.ok(html.includes('href="#/contact?quote=1"'));
+  assert.ok(html.includes('href="/contact?quote=1"'));
   assert.ok(html.includes('aria-label="Approximate quantity'));
 });

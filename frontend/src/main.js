@@ -15,6 +15,7 @@ import { services, serviceCategories } from './data/services.js';
 import { initQuoteList } from './components/quote-list.js';
 import { renderQuote, initQuote } from './pages/quote.js';
 import { offeringCard, applyProductStatus } from './components/offering-card.js';
+import { updateSeo } from './seo.js';
 
 document.body.classList.add('redesign');
 document.body.dataset.theme = 'light';
@@ -22,12 +23,12 @@ document.getElementById('preloader')?.remove();
 const app=document.getElementById('app');
 const navbar=createNavbar();
 const footer=createFooter();
-app.prepend(navbar);app.appendChild(footer);
+document.querySelectorAll('[data-server-shell]').forEach(el=>el.remove());app.prepend(navbar);app.appendChild(footer);
 const support=document.createElement('a');
 support.className='support-link';support.href='https://wa.me/919419014741';support.target='_blank';support.rel='noopener noreferrer';support.setAttribute('aria-label','Chat with Al Gani on WhatsApp');
 support.innerHTML='<span aria-hidden="true">↗</span> WhatsApp us';app.appendChild(support);
 initQuoteList();
-const path=()=> ((location.hash.slice(1)||'/').split('?')[0].replace(/\/+$/, '') || '/');
+const path=()=> ((location.hash.startsWith('#/')?location.hash.slice(1):(location.pathname||'/')+(location.search||'')).split('?')[0].replace(/\/+$/, '') || '/');
 const router=new Router([
   {path:'/',render:renderHome}, {path:'/about',render:renderAbout},
   {path:'/services',render:renderServicesIndex}, {path:'/services/:slug',render:renderService},
@@ -46,6 +47,7 @@ router.handleRoute=()=>{
 };
 router.onRendered=()=>{
   const current=path();
+  updateSeo(current);
   initQuoteList();
   if(current==='/')initHome();
   if(current==='/services')initServicesIndex();

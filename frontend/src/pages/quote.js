@@ -13,7 +13,7 @@ function renderQuoteContents() {
       <span class="quote-empty-mark" aria-hidden="true">＋</span>
       <h2>Every project starts<br>with a possibility.</h2>
       <p>Explore our offerings and save what interests you. Bring everything together here before you start a conversation.</p>
-      <a class="quote-primary" href="#/services">Explore the collection <span aria-hidden="true">↗</span></a>
+      <a class="quote-primary" href="/services">Explore the collection <span aria-hidden="true">↗</span></a>
     </div>`;
 
   return `
@@ -30,7 +30,7 @@ function renderQuoteContents() {
                 <span class="quote-item-number" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
                 <div class="quote-item-info">
                   <span class="quote-item-category">${escapeHtml(service.category)}</span>
-                  <h3><a href="#/services/${encodeURIComponent(item.slug)}">${name} <span aria-hidden="true">↗</span></a></h3>
+                  <h3><a href="/services/${encodeURIComponent(item.slug)}">${name} <span aria-hidden="true">↗</span></a></h3>
                   <div class="quote-item-controls">
                     <div class="quote-field">
                       <label for="quote-qty-${slug}">Approx. quantity</label>
@@ -48,7 +48,7 @@ function renderQuoteContents() {
               </li>`;
           }).join('')}
         </ul>
-        <a class="quote-continue" href="#/services"><span aria-hidden="true">＋</span> Add more offerings</a>
+        <a class="quote-continue" href="/services"><span aria-hidden="true">＋</span> Add more offerings</a>
       </div>
       <aside class="quote-summary" aria-labelledby="quote-next-title">
         <span class="quote-eyebrow">The next step</span>
@@ -59,7 +59,7 @@ function renderQuoteContents() {
           <li><span aria-hidden="true">02</span> Location &amp; project timeline</li>
           <li><span aria-hidden="true">03</span> Dimensions &amp; specifications</li>
         </ul>
-        <a class="quote-primary" href="#/contact?quote=1">Prepare an inquiry <span aria-hidden="true">↗</span></a>
+        <a class="quote-primary" href="/contact?quote=1">Prepare an inquiry <span aria-hidden="true">↗</span></a>
         <p class="quote-footnote">Review your message before sending. Availability, specifications, pricing, and delivery are confirmed by our team.</p>
       </aside>
     </div>`;
@@ -69,7 +69,7 @@ export function renderQuote() {
   return `
     <section class="quote-page" id="quote-page" aria-labelledby="quote-title">
       <div class="quote-container">
-        <nav class="quote-breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a><span aria-hidden="true">/</span><span aria-current="page">Project shortlist</span></nav>
+        <nav class="quote-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span aria-current="page">Project shortlist</span></nav>
         <header class="quote-header">
           <div><span class="quote-eyebrow">Made for your project</span><h1 id="quote-title">Good ideas,<br><em>all in one place.</em></h1></div>
           <p>Your working list of materials, equipment, and possibilities. Fine-tune it, then let’s talk about making it happen.</p>
