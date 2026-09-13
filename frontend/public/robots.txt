@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://www.algani.co.in/sitemap.xml
+Sitemap: https://algani.co.in/sitemap.xml

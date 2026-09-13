@@ -71,3 +71,10 @@ Prompt: Use case: logo-brand. Create a polished standalone website brand emblem 
 - Replace the PNG disguised as favicon.ico with a real ICO containing 32/48/96 pixel images. Declare the existing high-contrast AG icons consistently for browsers, Apple touch icons and the web manifest.
 - Add application names and WebSite structured data for the Al Gani site identity.
 - Validation: 76 tests and production build pass.
+
+## Final live verification — September 13, 2026
+- 76 automated tests and production build pass.
+- Live public pages, robots, sitemap, manifest, favicon and API health return 200. Health reports database and SMTP healthy. Private inventory returns 401 without authentication; a missing page returns 404.
+- Browser: quote add/remove, quantity 3 retained in inquiry prefill, empty form required-field validation, catalog search, mobile menu and page navigation checked. No customer inquiry was submitted. No browser console errors observed.
+- Found host-level www redirect to algani.co.in; aligned canonical, structured-data, social and sitemap URLs with the actual destination.
+- Real admin writes and end-to-end email delivery were not exercised on production; their transaction/error behavior is covered by automated tests.

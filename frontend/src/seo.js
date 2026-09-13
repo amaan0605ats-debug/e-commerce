@@ -1,6 +1,6 @@
 import { services } from './data/services.js';
 const builtInSlugs=new Set(services.map(s=>s.slug));
-export const SITE_URL='https://www.algani.co.in';
+export const SITE_URL='https://algani.co.in';
 const company={ '@type':'LocalBusiness','@id':SITE_URL+'/#business',name:'Al Gani General Suppliers',url:SITE_URL+'/',telephone:'+91-7780901374',email:'alganigeneralsupplier@gmail.com',logo:SITE_URL+'/images/algani-icon-512.png',image:SITE_URL+'/images/modular-kitchens.webp',address:{'@type':'PostalAddress',streetAddress:'Bagati Kanipora, Nowgam',addressLocality:'Kashmir',postalCode:'190019',addressCountry:'IN'},areaServed:[{'@type':'Place',name:'Kashmir Valley'},{'@type':'Place',name:'Leh'}]};
 export function seoForPath(path, catalog=services) {
  const clean=('/'+String(path||'/').replace(/^\/+/, '')).split('?')[0].replace(/\/+$/,'')||'/';

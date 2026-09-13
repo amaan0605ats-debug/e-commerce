@@ -6,7 +6,7 @@ test('public pages provide unique server-rendered content and canonical URLs bef
  const p=await import('../backend/lib/public-pages.mjs');
  for(const path of ['/','/about','/services','/contact',...p.catalog().map(s=>'/services/'+s.slug)]){
   const result=p.renderPublicPage(template,path);
-  assert.equal(result.status,200,path);assert.match(result.html,/<h1[ >]/);assert.ok(result.html.includes('href="https://www.algani.co.in'+path+'"'));assert.doesNotMatch(result.html,/href="#\//);assert.equal((result.html.match(/rel="canonical"/g)||[]).length,1);
+  assert.equal(result.status,200,path);assert.match(result.html,/<h1[ >]/);assert.ok(result.html.includes('href="https://algani.co.in'+path+'"'));assert.doesNotMatch(result.html,/href="#\//);assert.equal((result.html.match(/rel="canonical"/g)||[]).length,1);
  }
 });
 test('unknown pages return 404 and private pages stay outside search results',async()=>{
