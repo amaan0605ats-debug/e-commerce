@@ -1,5 +1,31 @@
 import { services } from '../data/services.js';
 import { db, collection, addDoc, serverTimestamp } from '../firebase.js';
+import { getQuoteSummary } from '../components/quote-list.js';
+
+const contactForms = new WeakMap();
+
+// Catalog requests can finish after a visitor has started writing their inquiry.
+export function refreshContactPrefill() {
+  const form = document.getElementById('contact-form');
+  if (!form) return;
+  let edited = contactForms.get(form);
+  if (!edited) {
+    edited = new Set();
+    contactForms.set(form, edited);
+    const trackEdit = event => edited.add(event.target.id);
+    form.addEventListener('input', trackEdit);
+    form.addEventListener('change', trackEdit);
+  }
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const service = form.querySelector('#form-service');
+  if (!edited.has(service.id) && [...service.options].some(option => option.value === params.get('service'))) {
+    service.value = params.get('service');
+  }
+  if (params.get('quote') === '1') {
+    if (!edited.has('form-message')) form.querySelector('#form-message').value = getQuoteSummary();
+    if (!edited.has('form-subject')) form.querySelector('#form-subject').value = 'supply';
+  }
+}
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -127,19 +153,19 @@ export function renderContact() {
           <div class="contact-form-col animate-on-scroll">
             <div class="contact-form-box">
               <h3 class="contact-form-title">Send Us a Message</h3>
-              <p class="contact-form-subtitle">We'll get back to you within 24 hours.</p>
+              <p class="contact-form-subtitle">Tell us what you need. We’ll help with the next step.</p>
               <form class="contact-form" id="contact-form" onsubmit="event.preventDefault();">
                 <div class="form-group">
                   <label for="form-name" class="form-label">Full Name</label>
-                  <input type="text" id="form-name" class="form-input" placeholder="Your full name" required>
+                  <input type="text" id="form-name" autocomplete="name" maxlength="100" class="form-input" placeholder="Your full name" required>
                 </div>
                 <div class="form-group">
                   <label for="form-email" class="form-label">Email Address</label>
-                  <input type="email" id="form-email" class="form-input" placeholder="your@email.com" required>
+                  <input type="email" id="form-email" autocomplete="email" maxlength="254" class="form-input" placeholder="your@email.com" required>
                 </div>
                 <div class="form-group">
                   <label for="form-phone" class="form-label">Phone Number</label>
-                  <input type="tel" id="form-phone" class="form-input" placeholder="+91 XXXXX XXXXX">
+                  <input type="tel" id="form-phone" autocomplete="tel" maxlength="30" class="form-input" placeholder="+91 XXXXX XXXXX">
                 </div>
                 <div class="form-group">
                   <label for="form-subject" class="form-label">Subject</label>
@@ -155,16 +181,16 @@ export function renderContact() {
                   <label for="form-service" class="form-label">Service of Interest</label>
                   <select id="form-service" class="form-input form-select">
                     <option value="">Select a service to buy/inquire...</option>
-                    ${services.map(s => `<option value="${s.slug}">${s.name}</option>`).join('')}
+                    ${services.map(s => `<option value="${escapeHtml(s.slug)}">${escapeHtml(s.name)}</option>`).join('')}
                   </select>
                 </div>
                 <div class="form-group">
                   <label for="form-location" class="form-label">Location / Territory</label>
-                  <input type="text" id="form-location" class="form-input" placeholder="e.g. Srinagar, Pulwama, Leh, or Not provided">
+                  <input type="text" id="form-location" autocomplete="address-level2" maxlength="200" class="form-input" placeholder="e.g. Srinagar, Pulwama, Leh, or Not provided">
                 </div>
                 <div class="form-group">
                   <label for="form-message" class="form-label">Message</label>
-                  <textarea id="form-message" class="form-input form-textarea" placeholder="Tell us about your requirements..." rows="5" required></textarea>
+                  <textarea id="form-message" maxlength="5000" class="form-input form-textarea" placeholder="Tell us about your requirements..." rows="5" required></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary btn-lg" id="form-submit-btn" style="width: 100%;">
                   Send Message
@@ -188,9 +214,22 @@ export function renderContact() {
 export function initContact() {
   const form = document.getElementById('contact-form');
   if (!form) return;
+  refreshContactPrefill();
+
+  for (const id of ['form-name', 'form-message']) {
+    const field = form.querySelector(`#${id}`);
+    field.addEventListener('input', () => field.setCustomValidity(''));
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    // Native required fields accept whitespace and programmatic prefills can exceed maxlength.
+    for (const id of ['form-name', 'form-message']) {
+      const field = form.querySelector(`#${id}`);
+      field.setCustomValidity(!field.value.trim() ? 'Please enter your ' + (id === 'form-name' ? 'name.' : 'requirements.') : field.value.length > field.maxLength ? `Please keep this within ${field.maxLength} characters.` : '');
+    }
+    if (!form.reportValidity()) return;
 
     const name = document.getElementById('form-name').value.trim();
     const email = document.getElementById('form-email').value.trim();
@@ -203,6 +242,10 @@ export function initContact() {
     const location = document.getElementById('form-location').value.trim();
     const message = document.getElementById('form-message').value.trim();
     const submitBtn = document.getElementById('form-submit-btn');
+
+    if (submitBtn.disabled) return;
+    const buttonLabel = submitBtn.innerHTML;
+    form.querySelector('.submission-error')?.remove();
 
     // Show loading state
     submitBtn.disabled = true;
@@ -223,7 +266,7 @@ export function initContact() {
     `;
 
     try {
-      // Write to Firestore inquiries collection
+      // Save the inquiry through the application API.
       await addDoc(collection(db, 'inquiries'), {
         name,
         email,
@@ -237,7 +280,7 @@ export function initContact() {
         createdAt: serverTimestamp()
       });
 
-      // Show gorgeous success feedback replacing the form container
+      // Replace the form only after the API confirms it was saved.
       const formBox = form.closest('.contact-form-box');
       if (formBox) {
         formBox.style.opacity = '0';
@@ -250,82 +293,37 @@ export function initContact() {
 
         setTimeout(() => {
           formBox.innerHTML = `
-            <div class="contact-success-card animate-visible" style="text-align: center; padding: 24px 12px;">
-              <div style="font-size: 56px; margin-bottom: 20px; animation: bounce 1.5s ease infinite;">✨</div>
+            <div class="contact-success-card animate-visible" role="status" tabindex="-1" style="text-align: center; padding: 24px 12px;">
+              <div class="contact-success-mark" aria-hidden="true">✓</div>
               <h3 style="font-family: var(--font-display); font-size: 26px; color: var(--gold-light); margin-bottom: 12px; font-style: italic; font-weight: 700;">Thank You, ${safeName}!</h3>
               <div class="section-rule" style="margin: 12px auto 20px;"></div>
               <p class="body-text" style="color: var(--text-dark) !important; font-size: 16px; line-height: 1.6; max-width: 420px; margin: 0 auto 24px; font-family: var(--font-body);">
-                Your message regarding <strong>${safeSubject}</strong> ${safeServiceName ? `for <em>${safeServiceName}</em>` : ''} has been received by Al Gani. Our dedicated team will review your inquiry and reach out to you within 24 hours.
+                Your message regarding <strong>${safeSubject}</strong> ${safeServiceName ? `for <em>${safeServiceName}</em>` : ''} has been received by Al Gani. Our dedicated team will review your inquiry and reach out to discuss the next steps.
               </p>
               <div style="margin-top: 12px;">
                 <a href="#/" class="btn btn-primary" style="font-size: 11px; letter-spacing: 2px; padding: 10px 24px; border-radius: 30px;">Return to Home</a>
               </div>
             </div>
-            <style>
-              @keyframes bounce {
-                0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-10px); }
-              }
-            </style>
           `;
           formBox.style.opacity = '1';
           formBox.style.transform = 'translateY(0)';
+          formBox.querySelector('.contact-success-card')?.focus({ preventScroll: true });
         }, 400);
       }
 
     } catch (error) {
-      console.error('Error submitting inquiry to Firestore:', error);
-
-      // Create a copyable backup and standard mailto fallback in case Firebase config is placeholder / offline
-      const mailtoUrl = `mailto:alganigeneralsupplier@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\nPhone: ${phone}\nService: ${serviceName || 'None'}\nMessage:\n${message}`)}`;
-      
-      const formBox = form.closest('.contact-form-box');
-      if (formBox) {
-        formBox.style.opacity = '0';
-        formBox.style.transform = 'translateY(10px)';
-        formBox.style.transition = 'all 0.4s ease';
-
-        setTimeout(() => {
-          formBox.innerHTML = `
-            <div class="contact-error-card" style="padding: 16px 8px; text-align: center;">
-              <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-              <h3 style="font-family: var(--font-display); font-size: 22px; color: #ff6b6b; margin-bottom: 12px; font-style: italic; font-weight: 700;">Submission Offline</h3>
-              <div class="section-rule" style="margin: 12px auto 20px; background: #ff6b6b;"></div>
-              <p class="body-text" style="color: var(--text-dark) !important; font-size: 15px; line-height: 1.6; max-width: 400px; margin: 0 auto 20px; font-family: var(--font-body);">
-                We couldn't connect to our live servers. Don't worry, your message is safe! You can send it directly to us via email or copy it below.
-              </p>
-              
-              <div style="margin: 16px 0; display: flex; flex-direction: column; gap: 12px; align-items: center;">
-                <a href="${mailtoUrl}" class="btn btn-primary" style="font-size: 11px; letter-spacing: 2.5px; width: 100%; border-radius: 30px; padding: 12px; text-align: center; display: block;">✉️ Send via Direct Email</a>
-                <button id="btn-copy-msg" class="btn btn-outline" style="font-size: 10px; letter-spacing: 2px; width: 100%; border-radius: 30px; padding: 10px; color: var(--gold-light); border-color: rgba(224,176,80,0.5);">📋 Copy Message to Clipboard</button>
-              </div>
-              
-              <div style="margin-top: 16px;">
-                <button id="btn-try-again" class="btn" style="font-size: 10px; color: var(--gold) !important; padding: 8px 16px; border: none; text-decoration: underline; background: none;">Go Back to Form</button>
-              </div>
-            </div>
-          `;
-          
-          formBox.style.opacity = '1';
-          formBox.style.transform = 'translateY(0)';
-
-          // Hook up helper buttons
-          document.getElementById('btn-copy-msg')?.addEventListener('click', () => {
-            const fullText = `Name: ${name}\nEmail: ${email}\nPhone: ${phone}\nSubject: ${subject}\nService: ${serviceName}\nMessage: ${message}`;
-            navigator.clipboard.writeText(fullText).then(() => {
-              const copyBtn = document.getElementById('btn-copy-msg');
-              if (copyBtn) copyBtn.textContent = '✓ Copied Successfully!';
-            }).catch(err => {
-              console.error('Failed to copy message:', err);
-            });
-          });
-
-          document.getElementById('btn-try-again')?.addEventListener('click', () => {
-            window.location.reload();
-          });
-        }, 400);
-      }
+      const notice = document.createElement('div');
+      notice.className = 'submission-error';
+      notice.setAttribute('role', 'alert');
+      const message = document.createElement('p');
+      message.textContent = 'Your inquiry could not be sent. Your details are still in this form. Please retry, or contact us by phone.';
+      const call = document.createElement('a');
+      call.href = 'tel:+917780901374';
+      call.textContent = 'Call +91 7780901374';
+      notice.append(message, call);
+      form.appendChild(notice);
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = buttonLabel;
     }
   });
 }
-

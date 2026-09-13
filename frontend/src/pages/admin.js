@@ -1837,8 +1837,8 @@ export function initAdmin() {
       { caption: `B2B batch inspection and quality control of ${name}` }
     ];
 
-    const inventoryCount = parseInt(document.getElementById('catalog-stock-count').value) || 100;
-    const lowStockThreshold = parseInt(document.getElementById('catalog-stock-threshold').value) || 10;
+    const inventoryCount = Number(document.getElementById('catalog-stock-count').value);
+    const lowStockThreshold = Number(document.getElementById('catalog-stock-threshold').value);
 
     try {
       const res = await fetch('/api/custom-services', {
@@ -1961,7 +1961,7 @@ export function initAdmin() {
       const parsedVal = parseInt(threshInput.value) || 0;
       
       const rangeInput = document.querySelector(`.admin-product-inventory-range[data-slug="${slug}"]`);
-      const currentVal = rangeInput ? (parseInt(rangeInput.value) || 100) : 100;
+      const currentVal = rangeInput ? Number(rangeInput.value) : 100;
       
       let newStatus = 'in-stock';
       if (currentVal === 0) {

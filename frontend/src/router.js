@@ -2,9 +2,8 @@ export class Router {
   constructor(routes) {
     this.routes = routes;
     this.currentPath = '';
-    
+    this.lastRenderedHash = null;
     window.addEventListener('hashchange', () => this.handleRoute());
-    window.addEventListener('load', () => this.handleRoute());
   }
 
   navigate(path) {
@@ -12,17 +11,13 @@ export class Router {
   }
 
   handleRoute() {
-    let hash = window.location.hash.slice(1) || '/';
-    
-    // Strip query parameters for routing
-    const queryIdx = hash.indexOf('?');
-    if (queryIdx !== -1) {
-      hash = hash.slice(0, queryIdx);
-    }
-    
+    clearTimeout(this.renderTimer);
+    clearTimeout(this.enterTimer);
+    this.scrollObserver?.disconnect();
+
+    const rawHash = window.location.hash.slice(1) || '/';
+    const hash = rawHash.split('?')[0].replace(/\/+$/, '') || '/';
     this.currentPath = hash;
-    
-    // Find matching route
     let matchedRoute = null;
     let params = {};
 
@@ -35,111 +30,124 @@ export class Router {
       }
     }
 
-    if (!matchedRoute) {
-      // Default to home
-      matchedRoute = this.routes.find(r => r.path === '/');
-      params = {};
-    }
-
     const app = document.getElementById('app-content');
-    if (app) {
-      // Add exit animation
-      app.classList.add('page-exit');
-      
-      setTimeout(() => {
-        app.innerHTML = '';
-        if (matchedRoute && matchedRoute.render) {
-          const content = matchedRoute.render(params);
-          if (typeof content === 'string') {
-            app.innerHTML = content;
-          } else if (content instanceof HTMLElement) {
-            app.appendChild(content);
-          }
-        }
-        
-        // Scroll to top
-        window.scrollTo({ top: 0, behavior: 'instant' });
-        
-        // Remove exit, add enter animation
-        app.classList.remove('page-exit');
-        app.classList.add('page-enter');
-        
-        // Trigger DOM reflow to immediately kickstart hardware-accelerated CSS transition
-        void app.offsetWidth;
-        
-        setTimeout(() => {
-          app.classList.remove('page-enter');
-        }, 150);
+    if (!app) return;
+    const shouldFocus = this.lastRenderedHash !== null && this.lastRenderedHash !== rawHash;
+    app.classList.add('page-exit');
 
-        // Initialize intersection observers for scroll animations
-        this.initScrollAnimations();
-        
-        // Update active nav link
-        this.updateActiveNav();
-      }, 100);
-    }
+    this.renderTimer = setTimeout(() => {
+      // The URL can change before its queued hashchange handler runs.
+      if ((window.location.hash.slice(1) || '/') !== rawHash) return;
+      const content = matchedRoute?.render ? matchedRoute.render(params) : this.renderNotFound();
+      // A route renderer may redirect (for example, the admin auth guard).
+      if ((window.location.hash.slice(1) || '/') !== rawHash) return;
+      app.innerHTML = '';
+      if (typeof content === 'string') {
+        app.innerHTML = content;
+      } else if (content instanceof HTMLElement) {
+        app.appendChild(content);
+      }
+
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      app.classList.remove('page-exit');
+      app.classList.add('page-enter');
+      void app.offsetWidth;
+      this.enterTimer = setTimeout(() => app.classList.remove('page-enter'), 150);
+
+      this.initScrollAnimations();
+      this.updateActiveNav();
+      const heading = app.querySelector('h1');
+      document.title = `${(heading?.innerText || heading?.textContent || '').replace(/\s+/g, ' ').trim() || 'Al Gani'} | Al Gani General Suppliers`;
+      this.lastRenderedHash = rawHash;
+      this.onRendered?.();
+
+      // Announce a client-side page change without stealing focus on first load.
+      if (shouldFocus) {
+        const focusTarget = heading || app;
+        focusTarget.setAttribute('tabindex', '-1');
+        focusTarget.focus({ preventScroll: true });
+      }
+    }, 100);
+  }
+
+  renderNotFound() {
+    return `
+      <section class="not-found-page page-hero">
+        <div class="container not-found-content">
+          <span class="eyebrow">404 / A little off course</span>
+          <h1>Let's get you<br>back on track.</h1>
+          <p>This page may have moved, or the link may be incomplete. Explore our offerings or tell us what you are looking for.</p>
+          <div class="not-found-actions">
+            <a href="#/services" class="btn btn-primary">Explore offerings <span aria-hidden="true">↗</span></a>
+            <a href="#/" class="btn btn-secondary">Back to home</a>
+          </div>
+        </div>
+      </section>
+    `;
   }
 
   matchRoute(pattern, hash) {
-    // Convert route pattern to regex
     const paramNames = [];
-    const regexStr = pattern.replace(/:([^/]+)/g, (_, name) => {
-      paramNames.push(name);
-      return '([^/]+)';
-    });
-    
-    const regex = new RegExp(`^${regexStr}$`);
-    const match = hash.match(regex);
-    
+    const regexStr = pattern.split('/').map(segment => {
+      if (segment.startsWith(':')) {
+        paramNames.push(segment.slice(1));
+        return '([^/]+)';
+      }
+      return segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }).join('/');
+
+    const match = hash.match(new RegExp(`^${regexStr}$`));
     if (!match) return null;
-    
+
     const params = {};
-    paramNames.forEach((name, i) => {
-      params[name] = match[i + 1];
-    });
-    
+    try {
+      paramNames.forEach((name, index) => {
+        params[name] = decodeURIComponent(match[index + 1]);
+      });
+    } catch {
+      // Invalid percent encoding should show the fallback page, never crash routing.
+      return null;
+    }
     return { params };
   }
 
   initScrollAnimations() {
-    // 1. Auto-stagger grids and lists to create beautiful cascades of items
-    const staggerContainers = document.querySelectorAll(
-      '.services-grid, .why-grid, .territories-info-col, .about-teaser-grid, .partners-ticker-wrap, .mega-menu-inner, .mobile-accordion-content'
-    );
-    
-    staggerContainers.forEach(container => {
-      const items = container.querySelectorAll('.animate-on-scroll');
-      items.forEach((item, index) => {
-        item.style.transitionDelay = `${index * 0.15}s`;
+    this.scrollObserver?.disconnect();
+    const elements = document.querySelectorAll('.animate-on-scroll');
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion || typeof IntersectionObserver === 'undefined') {
+      elements.forEach(element => element.classList.add('animate-visible'));
+      return;
+    }
+
+    document.querySelectorAll('.services-grid, .why-grid, .about-teaser-grid').forEach(container => {
+      container.querySelectorAll('.animate-on-scroll').forEach((item, index) => {
+        item.style.transitionDelay = `${Math.min(index, 4) * 0.08}s`;
       });
     });
 
-    // 2. Setup intersection observer for on-scroll reveal
-    const observer = new IntersectionObserver((entries) => {
+    const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           entry.target.classList.add('animate-visible');
           observer.unobserve(entry.target);
         }
       });
-    }, { threshold: 0.05, rootMargin: '0px 0px -40px 0px' });
-
-    document.querySelectorAll('.animate-on-scroll').forEach(el => {
-      observer.observe(el);
-    });
+    }, { threshold: 0.05, rootMargin: '0px 0px -20px 0px' });
+    this.scrollObserver = observer;
+    elements.forEach(element => observer.observe(element));
   }
 
   updateActiveNav() {
-    const hash = window.location.hash.slice(1) || '/';
+    const hash = this.currentPath;
     document.querySelectorAll('.nav-link').forEach(link => {
-      link.classList.remove('active');
       const href = link.getAttribute('href');
-      if (href) {
-        const linkPath = href.slice(1); // remove #
-        if (hash === linkPath || (linkPath !== '/' && hash.startsWith(linkPath))) {
-          link.classList.add('active');
-        }
-      }
+      const linkPath = href?.startsWith('#') ? href.slice(1) : null;
+      const isExact = hash === linkPath;
+      const isActive = linkPath !== null && (isExact || (linkPath !== '/' && hash.startsWith(`${linkPath}/`)));
+      link.classList.toggle('active', isActive);
+      if (isExact) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
     });
   }
 }

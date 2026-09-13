@@ -1,351 +1,211 @@
-  // ══════════════════════════════════════════════════════════
-//  LOCAL EXPRESS/MYSQL CONNECTION CLIENT — Al Gani Admin Panel
-// ══════════════════════════════════════════════════════════
-//
-//  This file replaces the Firebase SDK configuration completely.
-//  It provides drop-in compatible replacements for Firebase Auth 
-//  and Firestore methods, pointing instead to our local Express / MySQL server.
-//  
-// ══════════════════════════════════════════════════════════
+// Compatibility client for the Express API used by the admin dashboard.
+const auth = { currentUser: null };
+const db = {};
+const authListeners = new Set();
+const SESSION_KEY = 'algani_admin_user';
 
-// ── AUTHENTICATION CLIENT STATE ──
-const auth = {
-  currentUser: null
-};
-
-// Restore temporary session from sessionStorage on startup (logs out on tab close)
-const savedUser = sessionStorage.getItem('algani_admin_user');
-if (savedUser) {
+function saveSession(user) {
   try {
-    auth.currentUser = JSON.parse(savedUser);
-  } catch (e) {
-    console.error('Failed to parse saved user credentials', e);
+    if (user) sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch { /* A blocked storage API must not break the website. */ }
+}
+
+try {
+  const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+  if (saved && typeof saved.token === 'string' && saved.uid && saved.email) {
+    const payload = JSON.parse(atob(saved.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (typeof payload.exp === 'number' && payload.exp * 1000 > Date.now()) auth.currentUser = saved;
+    else saveSession(null);
+  } else if (saved) saveSession(null);
+} catch { saveSession(null); }
+
+function notifyAuth() {
+  for (const callback of [...authListeners]) {
+    try { callback(auth.currentUser); }
+    catch (error) { console.error('Auth listener failed:', error); }
   }
 }
 
-const authListeners = [];
-
-function triggerAuthChange() {
-  authListeners.forEach(callback => callback(auth.currentUser));
-}
-
-// Simulated onAuthStateChanged Auth State Guard
-const onAuthStateChanged = (authInstance, callback) => {
-  authListeners.push(callback);
-  // Trigger callback immediately with the restored or null state
+const onAuthStateChanged = (_auth, callback) => {
+  authListeners.add(callback);
   callback(auth.currentUser);
-  
-  // Return standard Firebase unsubscriber method
-  return () => {
-    const idx = authListeners.indexOf(callback);
-    if (idx > -1) authListeners.splice(idx, 1);
-  };
+  return () => authListeners.delete(callback);
 };
 
-// Helper to inject JWT token in request headers
-const getAuthHeaders = (headers = {}) => {
-  const user = auth.currentUser;
-  if (user && user.token) {
-    return {
-      ...headers,
-      'Authorization': `Bearer ${user.token}`
-    };
-  }
-  return headers;
-};
-
-// Simulated signInWithEmailAndPassword HTTP Client Handler
-const signInWithEmailAndPassword = async (authInstance, email, password) => {
-  const res = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
-  });
-
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({ error: 'Login failed' }));
-    const error = new Error(errData.error || 'Authentication failed');
-    if (errData.code) {
-      error.code = errData.code;
-    } else if (errData.error && (
-      errData.error.toLowerCase().includes('database') || 
-      errData.error.toLowerCase().includes('mysql') || 
-      errData.error.toLowerCase().includes('connect') || 
-      errData.error.toLowerCase().includes('pool') ||
-      errData.error.toLowerCase().includes('transaction')
-    )) {
-      error.code = 'auth/database-error';
-    } else {
-      error.code = 'auth/invalid-credential';
-    }
-    throw error;
-  }
-
-  const userData = await res.json();
-  auth.currentUser = userData;
-  sessionStorage.setItem('algani_admin_user', JSON.stringify(userData));
-  triggerAuthChange();
-
-  return { user: userData };
-};
-
-// Simulated signOut HTTP Client Handler
-const signOut = async (authInstance) => {
+const signOut = async () => {
   auth.currentUser = null;
-  sessionStorage.removeItem('algani_admin_user');
-  triggerAuthChange();
+  saveSession(null);
+  notifyAuth();
   return true;
 };
 
+async function request(endpoint, { method = 'GET', data, signal, authenticated = true } = {}) {
+  const token = authenticated ? auth.currentUser?.token : null;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) abort();
+  else signal?.addEventListener('abort', abort, { once: true });
+  const timeout = setTimeout(abort, 15000);
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method,
+      headers: {
+        ...(data !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      ...(data !== undefined ? { body: JSON.stringify(data) } : {}),
+      signal: controller.signal,
+    });
+    const raw = await response.text();
+    let result;
+    try { result = raw ? JSON.parse(raw) : {}; }
+    catch { result = null; }
+    if (!response.ok) {
+      const error = new Error(result?.error || `Request failed (${response.status}). Please try again.`);
+      error.status = response.status;
+      error.code = result?.code || (response.status === 503 ? 'auth/database-error' : 'api/request-failed');
+      if (response.status === 401 && ['auth/invalid-token', 'auth/unauthorized'].includes(error.code) && token === auth.currentUser?.token) {
+        await signOut();
+      }
+      throw error;
+    }
+    if (result === null) throw new Error('The server returned an unexpected response. Please try again.');
+    return result;
+  } catch (error) {
+    if (error.name === 'AbortError' && !signal?.aborted) {
+      throw new Error('The request timed out. Please try again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', abort);
+  }
+}
 
-// ── FIRESTORE DATABASE MOCKING INTERFACE ──
-const db = {};
-
-// Collection Reference Builder
-const collection = (dbInstance, collectionPath) => {
-  return {
-    type: 'collection',
-    path: collectionPath
-  };
+const signInWithEmailAndPassword = async (_auth, email, password) => {
+  const user = await request('/api/auth/login', { method: 'POST', data: { email, password }, authenticated: false });
+  if (!user.uid || !user.email || typeof user.token !== 'string') throw new Error('The server returned an invalid sign-in response.');
+  auth.currentUser = user;
+  saveSession(user);
+  notifyAuth();
+  return { user };
 };
 
-// Document Reference Builder
-const doc = (dbInstance, collectionPath, docId) => {
-  return {
-    type: 'document',
-    path: collectionPath,
-    id: docId
-  };
-};
-
-// Dummy Firestore Constraints for query construction Compatibility
-const query = (collectionRef, ...constraints) => {
-  // Returns collection ref as is — sorting & constraints handled by MySQL endpoints
-  return collectionRef;
-};
-
+const collection = (_db, path) => ({ type: 'collection', path });
+const doc = (_db, path, id) => ({ type: 'document', path, id });
+const query = (reference, ...constraints) => ({ ...reference, constraints });
 const orderBy = (field, direction = 'asc') => ({ type: 'orderBy', field, direction });
 const where = (field, operator, value) => ({ type: 'where', field, operator, value });
 const serverTimestamp = () => new Date().toISOString();
+const endpoint = (reference) => `/api/${encodeURIComponent(reference.path)}${reference.id !== undefined ? `/${encodeURIComponent(reference.id)}` : ''}`;
 
-// Simulated addDoc HTTP Post client mapping
-const addDoc = async (collectionRef, data) => {
-  const path = collectionRef.path;
-  
-  // Strip serverTimestamp placeholder strings or mock functions to JSON-friendly data
-  const payload = { ...data };
-  Object.keys(payload).forEach(key => {
-    if (typeof payload[key] === 'function' || payload[key] === undefined) {
-      payload[key] = new Date().toISOString();
+function snapshot(data, reference = {}) {
+  if (!Array.isArray(data)) throw new Error('The server returned an invalid collection response.');
+  let rows = [...data];
+  for (const constraint of reference.constraints || []) {
+    if (constraint.type === 'where') {
+      if (constraint.operator === '==') rows = rows.filter(row => row[constraint.field] === constraint.value);
+      else if (constraint.operator === '!=') rows = rows.filter(row => row[constraint.field] !== constraint.value);
+      else throw new Error(`Unsupported query operator: ${constraint.operator}`);
     }
+  }
+  const sorting = (reference.constraints || []).filter(c => c.type === 'orderBy');
+  if (sorting.length) rows.sort((a, b) => {
+    for (const { field, direction } of sorting) {
+      const difference = a[field] < b[field] ? -1 : a[field] > b[field] ? 1 : 0;
+      if (difference) return direction === 'desc' ? -difference : difference;
+    }
+    return 0;
   });
+  const docs = rows.map(item => ({ id: item.id ?? item.slug, data: () => item }));
+  return { docs, size: docs.length, empty: docs.length === 0, forEach: callback => docs.forEach(callback) };
+}
 
-  const res = await fetch(`/api/${path}`, {
-    method: 'POST',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(payload)
-  });
+const addDoc = async (reference, data) => {
+  const saved = await request(endpoint(reference), { method: 'POST', data });
+  return { id: saved.id ?? saved.slug, data: () => saved };
+};
+const getDocs = async (reference) => snapshot(await request(endpoint(reference)), reference);
+const getDoc = async (reference) => {
+  try {
+    const item = await request(endpoint(reference));
+    return { exists: () => true, id: item.id ?? item.slug ?? reference.id, data: () => item };
+  } catch (error) {
+    if (error.status === 404) return { exists: () => false, id: reference.id, data: () => undefined };
+    throw error;
+  }
+};
+const updateDoc = (reference, data) => request(endpoint(reference), { method: 'PUT', data });
+const setDoc = updateDoc;
 
-  if (!res.ok) {
-    let detail = '';
+// Schedule after each response so slow requests never overlap. An unmounted
+// dashboard cannot receive a delayed response or accidentally start polling again.
+const onSnapshot = (reference, callback, errorCallback) => {
+  let active = true;
+  let timer;
+  let previous = '';
+  const controller = new AbortController();
+  const poll = async () => {
     try {
-      const errBody = await res.json();
-      detail = errBody.error || errBody.detail || JSON.stringify(errBody);
-    } catch {
-      detail = await res.text().catch(() => '');
-    }
-    throw new Error(
-      `API error ${res.status} on /api/${path}${detail ? `: ${detail}` : ''}`
-    );
-  }
-
-  const savedData = await res.json();
-  return {
-    id: savedData.id,
-    data: () => savedData
-  };
-};
-
-// Simulated getDocs HTTP Fetch client mapping
-const getDocs = async (collectionRef) => {
-  const path = collectionRef.path;
-  const res = await fetch(`/api/${path}`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch database collection '${path}'`);
-  }
-
-  const data = await res.json();
-  return {
-    forEach: (callback) => {
-      data.forEach(item => {
-        callback({
-          id: item.id || item.slug,
-          data: () => item
-        });
-      });
-    },
-    docs: data.map(item => ({
-      id: item.id || item.slug,
-      data: () => item
-    }))
-  };
-};
-
-// Simulated getDoc HTTP Fetch single document mapping
-const getDoc = async (docRef) => {
-  const { path, id } = docRef;
-  const res = await fetch(`/api/${path}/${id}`, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) {
-    throw new Error(`Document '${id}' not found in database path '${path}'`);
-  }
-  const item = await res.json();
-  return {
-    exists: () => true,
-    id: item.id || item.slug,
-    data: () => item
-  };
-};
-
-// Simulated updateDoc HTTP Put client mapping
-const updateDoc = async (docRef, data) => {
-  const { path, id } = docRef;
-  const res = await fetch(`/api/${path}/${id}`, {
-    method: 'PUT',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(data)
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to update database record '${id}' in path '${path}'`);
-  }
-
-  const updatedData = await res.json();
-  return updatedData;
-};
-
-// Simulated setDoc HTTP Put client mapping (used for toggles and settings merges)
-const setDoc = async (docRef, data, options = {}) => {
-  const { path, id } = docRef;
-  const res = await fetch(`/api/${path}/${id}`, {
-    method: 'PUT',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(data)
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to set database configurations for product '${id}'`);
-  }
-
-  const savedData = await res.json();
-  return savedData;
-};
-
-// Simulated onSnapshot Real-time sync pipeline using polling
-const onSnapshot = (queryRef, callback, errorCallback) => {
-  const path = queryRef.path;
-  let lastStringifiedData = '';
-
-  const pollData = async () => {
-    try {
-      const res = await fetch(`/api/${path}`, {
-        headers: getAuthHeaders()
-      });
-      if (!res.ok) throw new Error(`Fetch failed for polling real-time stream '${path}'`);
-      const data = await res.json();
-
-      const stringified = JSON.stringify(data);
-      if (stringified !== lastStringifiedData) {
-        lastStringifiedData = stringified;
-
-        // Build mock Firebase QuerySnapshot
-        const snapshot = {
-          forEach: (cb) => {
-            data.forEach(item => {
-              cb({
-                id: item.id || item.slug,
-                data: () => item
-              });
-            });
-          },
-          docs: data.map(item => ({
-            id: item.id || item.slug,
-            data: () => item
-          }))
-        };
-
-        callback(snapshot);
+      const data = await request(endpoint(reference), { signal: controller.signal });
+      if (!active) return;
+      const value = JSON.stringify(data);
+      if (value !== previous) {
+        const result = snapshot(data, reference);
+        previous = value;
+        callback(result);
       }
-    } catch (err) {
-      if (errorCallback) {
-        errorCallback(err);
-      } else {
-        console.error('Real-time synchronization poll failure:', err);
-      }
+    } catch (error) {
+      if (!active) return;
+      if (errorCallback) errorCallback(error);
+      else console.error('Dashboard refresh failed:', error);
+    } finally {
+      if (active) timer = setTimeout(poll, 30000);
     }
   };
-
-  // Run immediate fetch
-  pollData();
-
-  // Establish a 3-second database polling cycle (simulates live Firestore synchronization)
-  const pollInterval = setInterval(pollData, 3000);
-
-  // Return unsubscribe cleanup handler
-  return () => {
-    clearInterval(pollInterval);
-  };
+  poll();
+  return () => { active = false; clearTimeout(timer); controller.abort(); };
 };
 
-// Simulated changePassword HTTP Client Handler
-const changePassword = async (email, currentPassword, newPassword) => {
-  const res = await fetch('/api/auth/change-password', {
-    method: 'PUT',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ email, currentPassword, newPassword })
-  });
+const changePassword = (email, currentPassword, newPassword) => request('/api/auth/change-password', {
+  method: 'PUT', data: { email, currentPassword, newPassword },
+});
 
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({ error: 'Password change failed' }));
-    throw new Error(errData.error || 'Failed to update password');
-  }
-
-  return await res.json();
-};
-
-// Simulated Cache Store for Products/Offerings
 let productsCache = null;
 let lastCacheTime = 0;
-
+let productsRequest = null;
+let productsRequestVersion = 0;
 const getCachedProducts = async (forceRefresh = false) => {
-  const now = Date.now();
-  // Cache for 30 seconds to prevent constant HTTP queries on route switching
-  if (!productsCache || forceRefresh || (now - lastCacheTime > 30000)) {
-    try {
-      // Use public endpoint for visitors, full admin endpoint for authenticated admins
-      const isAdmin = auth.currentUser && auth.currentUser.token;
-      const endpoint = isAdmin ? '/api/products' : '/api/products/public';
-      const res = await fetch(endpoint, {
-        headers: getAuthHeaders()
-      });
-      if (res.ok) {
-        productsCache = await res.json();
-        lastCacheTime = now;
+  if (!forceRefresh && productsCache && Date.now() - lastCacheTime < 30000) return productsCache;
+  if (productsRequest && !forceRefresh) return productsRequest;
+  // Public pages always use public fields, including during an admin session.
+  // No supplier addresses or internal counts are retained after signing out.
+  const version = ++productsRequestVersion;
+  const pending = request('/api/products/public', { authenticated: false })
+    .then(data => {
+      if (!Array.isArray(data)) throw new Error('Invalid product response');
+      // A slow request started before an admin update cannot replace the newer
+      // visibility response fetched by forceRefresh.
+      if (version === productsRequestVersion) {
+        productsCache = data;
+        lastCacheTime = Date.now();
       }
-    } catch (e) {
-      console.error('Failed to fetch products for cache:', e);
-    }
-  }
-  return productsCache || [];
+      return productsCache || data;
+    })
+    .catch(error => {
+      console.error('Product availability refresh failed:', error);
+      return productsCache || [];
+    })
+    .finally(() => { if (productsRequest === pending) productsRequest = null; });
+  productsRequest = pending;
+  return pending;
 };
 
 export {
-  auth, db,
-  signInWithEmailAndPassword, signOut, onAuthStateChanged,
+  auth, db, signInWithEmailAndPassword, signOut, onAuthStateChanged,
   collection, addDoc, getDocs, getDoc, doc, updateDoc,
   query, orderBy, where, onSnapshot, serverTimestamp, setDoc,
-  changePassword, getCachedProducts
+  changePassword, getCachedProducts,
 };

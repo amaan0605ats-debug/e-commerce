@@ -1,159 +1,63 @@
-# 🌾 Al Gani - Premium B2B E-Commerce & Supply Chain Portal
+# Al Gani — supply catalog and inquiry portal
 
-Welcome to the **Al Gani** B2B Supply Chain & Catalog Platform. This is a high-fidelity, high-performance web application designed for regional Jammu & Kashmir businesses, offering premium dark-chocolate and gold-accented styling, low-latency animations, dynamic catalog custom offerings, and interactive B2B partner registration.
+A Vite/vanilla JavaScript website and Express/MySQL admin API for a B2B general supplier serving Kashmir and Leh.
 
----
+## Public website
 
-## 🛠️ Technology Stack
+- Editorial homepage with sector previews and featured offerings
+- Searchable collection with combined category filters and alphabetical sorting
+- Offering detail pages with image galleries and accessible enlargement dialogs
+- Persistent quote shortlist with quantities and measures, carried into an editable inquiry
+- Company information, contact form and direct phone/WhatsApp/email links
+- Responsive navigation, keyboard focus handling, reduced-motion support and recovery pages
 
-* **Frontend:** Vanilla HTML5, CSS3, & Modern ES6 JavaScript built on **Vite**.
-* **Backend:** **Node.js (Express)** serving dynamic APIs.
-* **Database:** **MySQL** storing catalog products, custom services, corporate partners, and B2B inquiries.
-* **Mock Firebase Client Layer:** Drop-in simulated Firebase Auth and Firestore queries mapping seamlessly to local Express APIs.
-* **Styling & Assets:** Harmony-based Vanilla CSS with hardware-accelerated (`will-change`) page loading transitions operating at exactly 250ms.
+The quote list is an inquiry planning tool. Prices, specifications, stock, delivery and installation are confirmed by the supplier; the site does not process payments.
 
----
+## Local setup
 
-## ✨ Features & Capabilities
+Use Node.js 22.12+ and npm. From the repository root:
 
-1. **🌾 Dynamic Custom Catalog Offerings:**
-   * Dynamic catalog items added via the admin dashboard instantly update the MySQL database and synchronize with the public navigation bar categories, the mobile-responsive menu, the Services Index page, and dynamic service detail pages.
-   * Auto-generates search-friendly slug strings, localized WhatsApp inquiry actions, and custom detail features lists.
-
-2. **🤝 B2B Corporate Partners Module:**
-   * Real-time tracking of corporate B2B partners.
-   * Dynamic status pills with action hooks (approve pending partners instantly).
-   * Manual partner addition with responsive modal forms.
-
-3. **⚡ High-Performance Animations:**
-   * Custom page transition animations triggering and resolving in exactly 250ms (well under the 300ms network budget designed to accommodate unstable J&K connections).
-
-4. **🛡️ Image Resiliency Systems:**
-   * Automated, context-aware image placeholder fallbacks across the client to prevent broken image grids under slow or dropping internet connections.
-
-5. **📧 Order Management & Email Notifications:**
-   * Contact / quick-inquiry forms create an inquiry with status **pending** and email: *"We have received your request for [Product Name]."*
-   * Admin **Accept** sets status **accepted** and emails: *"Your order for [Product Name] has been accepted!"*
-   * Admin **Delivered** (Deliveries tab, after convert) sets status **delivered** and emails: *"Your order for [Product Name] has been delivered!"*
-
----
-
-## 📁 Project structure
-
-```
-algani-website/
-├── frontend/          # Vite app (src/, public/, index.html)
-├── backend/           # Express API (server.cjs, lib/, scripts/)
-├── .env               # Shared config (repo root)
-├── package.json       # npm workspaces — dev, build, start
-└── render.yaml
-```
-
----
-
-## 🚀 Getting Started Locally
-
-### 1. Prerequisites
-Ensure you have **Node.js (v18+)** and a **MySQL** server active on your system.
-
-### 2. Environment Setup
-Create a `.env` file at the root of the project (`/algani-website/.env`):
-```env
-PORT=5000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=yourpassword
-DB_NAME=algani_db
-JWT_SECRET=supersecretkey
-
-# SMTP — automated order status emails (Gmail, SendGrid, etc.)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-SMTP_FROM="Al Gani General Suppliers <your-email@gmail.com>"
-```
-
-### 3. Installation
-Install the project dependencies:
-```bash
-npm install
-```
-
-### 4. Running the Application
-Start **both** API and Vite dev server:
-
-```bash
+```sh
+npm ci
 npm run dev
 ```
 
-- Frontend: http://localhost:5173 (proxies `/api` → backend)
-- Backend: http://localhost:5000
+The frontend runs at http://localhost:5173 and proxies `/api` to the backend on port 5000. The public built-in collection can be browsed without a database; submissions and admin operations require MySQL.
 
-Or run separately: `npm run dev -w backend` and `npm run dev -w frontend`.
+Copy `.env.example` to `.env` and configure:
 
----
+- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, or `MYSQL_URL`
+- `JWT_SECRET`: a long random secret
+- `ADMIN_PASSWORD_1`: a unique password for the initial `aftab@algani` administrator (8+ characters, at most 72 UTF-8 bytes)
+- SMTP or Resend settings for email delivery; see `backend/lib/emailService.cjs`
 
-## 📦 Production Deployment
+Never commit `.env`. Existing admin accounts are preserved. Startup does not create fictional business activity by default. `SEED_DEMO_DATA=true` is available only outside production for a disposable demo database.
 
-### 1. Build Static Assets
-Compile the Vite client files for production:
-```bash
+## Validation and build
+
+```sh
+npm test
 npm run build
-```
-This builds static files into `frontend/dist/`.
-
-### 2. Run API Server in Production
-```bash
 npm start
 ```
-*(serves `frontend/dist` and `/api` from `backend/server.cjs`)*
 
-### 3. Web Server Configuration
-Configure **Nginx** or **Apache** to serve `frontend/dist/` and proxy `/api/*` to `http://localhost:5000`.
+`npm test` runs focused route, catalog, shortlist, client-state and backend-handler regression tests. Backend tests use recorded database adapters; they do not replace integration testing with MySQL and email services.
 
----
+The production build is written to `frontend/dist`. `npm start` runs `backend/server.cjs` and serves both the frontend build and `/api`. Deployment configuration is included in `render.yaml` and `railway.toml`; configure the database, admin password and mail service before deployment.
 
-## ☁️ Deploy on Render (Free Web Service)
+## Inventory behavior
 
-Render’s **free web service** can host this app (site + API in one process). Render does **not** include free MySQL—you need a free MySQL-compatible database elsewhere (recommended: [TiDB Cloud Serverless](https://tidbcloud.com/) — MySQL compatible, free tier).
+Creating an inquiry or converting it into a delivery does not deduct a fabricated quantity from inventory. Administrators manage counts explicitly. Inquiry conversion and linked delivery updates use transactions; shipped and delivered are distinct states.
 
-### 1. Push code to GitHub
-Ensure `main` is up to date on your GitHub repo.
+## Structure
 
-### 2. Create the web service on Render
-1. Sign in at [render.com](https://render.com/) → **New** → **Blueprint**.
-2. Connect repository `amaan0605ats-debug/e-commerce`.
-3. Render detects `render.yaml` → **Apply**.
+- `frontend/src/pages`: public pages and admin dashboard
+- `frontend/src/components`: navigation, offering cards and shortlist state
+- `frontend/src/redesign.css`: public editorial design
+- `frontend/src/quote.css`: quote-list layout
+- `backend/server.cjs`: API and startup
+- `backend/lib`: validation and email helpers
+- `tests`: focused regression coverage
+- `REVIEW.md`: changes, validation evidence and outstanding integration checks
 
-Or manually: **New** → **Web Service** → connect repo → settings:
-- **Build command:** `npm install && npm run build`
-- **Start command:** `npm start`
-- **Plan:** Free
-
-### 3. Environment variables (Render dashboard → Environment)
-
-| Variable | Example / notes |
-|----------|-----------------|
-| `MYSQL_URL` | `mysql://user:pass@host:4000/dbname` from TiDB (or other host) |
-| `DB_SSL` | `true` (set `DB_SSL_REJECT_UNAUTHORIZED=false` only if TLS errors) |
-| `ADMIN_PASSWORD_1` | Your admin login password |
-| `JWT_SECRET` | Long random string (or use Render “Generate”) |
-| `SMTP_HOST` | `smtp.gmail.com` |
-| `SMTP_PORT` | `587` |
-| `SMTP_USER` | `alganigeneralsupplier@gmail.com` |
-| `SMTP_PASS` | Gmail app password |
-| `SMTP_FROM` | `"Al Gani General Suppliers <alganigeneralsupplier@gmail.com>"` |
-
-Do **not** commit `.env` to GitHub.
-
-### 4. Deploy
-Click **Deploy**. When the build finishes, open your `*.onrender.com` URL.
-
-**Free tier notes:** The service sleeps after ~15 minutes of no traffic (first visit may take 30–60s to wake). Database and SMTP must stay configured in the dashboard.
-
----
-
-## 📄 License
-This project is proprietary and reserved for Al Gani B2B operations. All rights reserved.
+All rights reserved by Al Gani.

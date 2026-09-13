@@ -15,7 +15,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: JWT_SECRET
         generateValue: true
       - key: ADMIN_PASSWORD_1

@@ -23,9 +23,9 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const crypto = require('crypto');
+const { ORDER_STATUSES, INQUIRY_STATUSES, isBoolean, isEmail, validateInventory } = require('./lib/validation.cjs');
 const {
   resolveProductName,
-  sendOrderStatusEmail,
   enqueueOrderStatusEmail,
   slugToDisplayName,
   isEmailConfigured,
@@ -109,11 +109,23 @@ app.use(cors((req, callback) => {
 
 // JSON body size limit (prevent DoS)
 app.use(express.json({ limit: '100kb' }));
+app.use('/api', (req, res, next) => {
+  // These actions take their complete input from the route, and the dashboard
+  // intentionally sends them without a request body.
+  const bodylessAction = req.method === 'PUT' &&
+    /^\/(?:alerts\/[^/]+\/read|partners\/[^/]+\/approve)\/?$/.test(req.path);
+  if (bodylessAction && req.body === undefined) return next();
+  if (['POST', 'PUT', 'PATCH'].includes(req.method) &&
+      (!req.body || typeof req.body !== 'object' || Array.isArray(req.body))) {
+    return res.status(400).json({ error: 'A JSON object request body is required.' });
+  }
+  next();
+});
 
 // Rate Limiters
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 300, // Accommodate four dashboard subscriptions polling every 30 seconds.
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' }
@@ -154,7 +166,8 @@ function requireAuth(req, res, next) {
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+    if (!decoded.id || !decoded.email) throw new Error('Invalid admin session');
     req.admin = decoded;
     next();
   } catch (err) {
@@ -231,6 +244,7 @@ function getDbSslOptions() {
 }
 
 let pool;
+let databaseReady = false;
 let lastDbError = null;
 
 // Enable database health checks
@@ -238,10 +252,10 @@ let lastDbError = null;
 app.get('/api/health', (req, res) => {
   // Always 200 so Render health checks pass while TiDB is still connecting
   res.status(200).json({
-    ok: Boolean(pool),
-    database: Boolean(pool),
+    ok: databaseReady,
+    database: databaseReady,
     smtp: isEmailConfigured(),
-    ...(pool
+    ...(databaseReady || process.env.NODE_ENV === 'production'
       ? {}
       : {
           fix:
@@ -254,7 +268,7 @@ app.get('/api/health', (req, res) => {
 
 // Database connectivity verification middleware
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api') && req.path !== '/api/health' && !pool) {
+  if (req.path.startsWith('/api/') && req.path !== '/api/health' && !databaseReady) {
     return res.status(503).json({
       code: 'auth/database-error',
       error: 'Database not connected. Please contact support or check server logs.',
@@ -266,6 +280,7 @@ app.use((req, res, next) => {
 
 // ── DATABASE INITIALIZATION & SCHEMA CREATION ──
 async function initDatabase() {
+  databaseReady = false;
   const dbConfig = parseDbConfig();
   const ssl = getDbSslOptions();
 
@@ -285,7 +300,7 @@ async function initDatabase() {
       });
 
       console.log(`Creating database '${dbConfig.database}' if it doesn't exist...`);
-      await conn.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
+      await conn.query('CREATE DATABASE IF NOT EXISTS ??', [dbConfig.database]);
       await conn.end();
     }
 
@@ -462,9 +477,12 @@ async function initDatabase() {
 
     // ── DATABASE SEEDING ──
     await seedDatabase();
+    databaseReady = true;
+    lastDbError = null;
 
   } catch (error) {
     lastDbError = error.message || String(error);
+    if (pool) await pool.end().catch(() => {});
     pool = null;
     console.error('❌ Database Initialization Failed!');
     console.error(error);
@@ -477,63 +495,35 @@ async function initDatabase() {
 // Helper to seed standard tables with realistic high-fidelity data
 async function seedDatabase() {
   try {
-    // A. Seed default administrator credentials
-    // Clear out any legacy admin credentials whose email is not aftab@algani
-    await pool.query('DELETE FROM admins WHERE email != ?', ['aftab@algani']);
-
-    // Check if aftab@algani exists
+    // Provision an administrator only with an explicitly configured password.
+    // Preserve existing accounts and passwords across application restarts.
     const adminEmail = 'aftab@algani';
-    let adminPass = process.env.ADMIN_PASSWORD_1;
-    if (!adminPass) {
-      if (process.env.NODE_ENV === 'production') {
-        console.error('❌ CRITICAL: ADMIN_PASSWORD_1 env variable is missing. Refusing to seed default admin in production!');
-        return;
-      }
-      adminPass = 'admin123';
-    }
+    const adminPass = process.env.ADMIN_PASSWORD_1;
     const adminName = 'Syed Mir Aftab';
-    const hashedPassword = bcrypt.hashSync(adminPass, 10);
-
     const [existingAdmins] = await pool.query('SELECT * FROM admins WHERE email = ?', [adminEmail]);
-    let activePasswordHash = hashedPassword;
-
-    if (existingAdmins.length === 0) {
+    const validConfiguredPassword = adminPass && adminPass.length >= 8 && Buffer.byteLength(adminPass, 'utf8') <= 72;
+    if (existingAdmins.length === 0 && validConfiguredPassword) {
       console.log('Seeding default administrator credentials for aftab@algani...');
       await pool.query(
         'INSERT INTO admins (id, email, password, displayName) VALUES (?, ?, ?, ?)',
-        ['admin-1', adminEmail, hashedPassword, adminName]
+        ['admin-1', adminEmail, await bcrypt.hash(adminPass, 10), adminName]
       );
-    } else {
+    } else if (existingAdmins.length > 0 && validConfiguredPassword) {
       const admin = existingAdmins[0];
-      activePasswordHash = admin.password;
-
-      // Overwrite database password ONLY if:
-      // 1. Database password is currently the default "admin123" AND ADMIN_PASSWORD_1 is set to a secure custom value.
-      // 2. OR FORCE_ADMIN_PASSWORD_SYNC env variable is explicitly set to 'true'.
-      const isDbPasswordDefault = bcrypt.compareSync('admin123', admin.password);
-      const shouldSync = (isDbPasswordDefault && adminPass !== 'admin123') || process.env.FORCE_ADMIN_PASSWORD_SYNC === 'true';
-
-      if (shouldSync) {
+      const isDbPasswordDefault = await bcrypt.compare('admin123', admin.password);
+      if (isDbPasswordDefault || process.env.FORCE_ADMIN_PASSWORD_SYNC === 'true') {
         console.log('Syncing administrator password with ADMIN_PASSWORD_1 environment variable...');
         await pool.query(
           'UPDATE admins SET password = ? WHERE email = ?',
-          [hashedPassword, adminEmail]
+          [await bcrypt.hash(adminPass, 10), adminEmail]
         );
-        activePasswordHash = hashedPassword;
       }
+    } else if (existingAdmins.length === 0) {
+      console.warn('No administrator provisioned. Configure ADMIN_PASSWORD_1 with 8 characters minimum and at most 72 UTF-8 bytes.');
     }
 
-    // Print warning if the active password is still the default one ("admin123")
-    if (bcrypt.compareSync('admin123', activePasswordHash)) {
-      if (process.env.NODE_ENV === 'production') {
-        console.error('\n🚨🚨🚨 SECURITY CRITICAL WARNING 🚨🚨🚨');
-        console.error('⚠️  The administrator account (aftab@algani) is currently using the default password "admin123" in production!');
-        console.error('⚠️  Please change this password IMMEDIATELY via the admin panel /api/auth/change-password endpoint to prevent unauthorized access.');
-        console.error('🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨\n');
-      } else {
-        console.log('[security] Default admin user is active with password "admin123".');
-      }
-    }
+    // Example stock counts, customers, deliveries and partners are opt-in demo data.
+    if (process.env.SEED_DEMO_DATA !== 'true' || process.env.NODE_ENV === 'production') return;
 
     // B. Seed default stock and visibility profiles for all service products
     const [productRows] = await pool.query('SELECT COUNT(*) as count FROM products');
@@ -807,10 +797,10 @@ app.post('/api/custom-services', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Name, Category, Short Description, and Long Description are required' });
   }
   
-  if (typeof name !== 'string' || name.trim().length > 200 ||
-      typeof category !== 'string' || category.trim().length > 200 ||
-      typeof shortDesc !== 'string' || shortDesc.trim().length > 1000 ||
-      typeof longDesc !== 'string' || longDesc.trim().length > 5000) {
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 200 ||
+      typeof category !== 'string' || !category.trim() || category.trim().length > 200 ||
+      typeof shortDesc !== 'string' || !shortDesc.trim() || shortDesc.trim().length > 1000 ||
+      typeof longDesc !== 'string' || !longDesc.trim() || longDesc.trim().length > 5000) {
     return res.status(400).json({ error: 'Inputs are invalid or exceed length limits' });
   }
 
@@ -819,6 +809,21 @@ app.post('/api/custom-services', requireAuth, async (req, res) => {
   }
   if (gallery && !Array.isArray(gallery)) {
     return res.status(400).json({ error: 'Gallery must be an array' });
+  }
+  const inventoryError = validateInventory({ inventoryCount, lowStockThreshold });
+  if (inventoryError) return res.status(400).json({ error: inventoryError });
+  if (icon !== undefined && (typeof icon !== 'string' || [...icon].length > 10)) {
+    return res.status(400).json({ error: 'Icon must contain at most 10 characters' });
+  }
+  if ((features || []).length > 30 || (features || []).some(f => typeof f !== 'string' || f.length > 500)) {
+    return res.status(400).json({ error: 'Features must contain at most 30 text entries of 500 characters each' });
+  }
+  if ((gallery || []).length > 20 || (gallery || []).some(g => {
+    const url = typeof g === 'string' ? g : g?.url;
+    try { return typeof url !== 'string' || url.length > 2048 || !['https:', 'http:'].includes(new URL(url).protocol); }
+    catch { return true; }
+  })) {
+    return res.status(400).json({ error: 'Gallery must contain at most 20 valid HTTP or HTTPS image URLs' });
   }
 
   name = sanitizeInput(name.trim());
@@ -843,26 +848,36 @@ app.post('/api/custom-services', requireAuth, async (req, res) => {
     .replace(/(^-|-$)/g, '');
     
   const tag = 'Dynamic Offering';
+  if (!slug) return res.status(400).json({ error: 'Offering name must include a letter or number for its URL' });
   const featuresJSON = JSON.stringify(sanitizedFeatures);
   const galleryJSON = JSON.stringify(sanitizedGallery);
   
+  let connection;
   try {
-    // 1. Save offering to custom_services table
-    await pool.query(
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    // Save the offering and its inventory profile atomically.
+    await connection.query(
       'INSERT INTO custom_services (slug, name, icon, category, tag, shortDesc, longDesc, features, gallery) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [slug, name, icon, category, tag, shortDesc, longDesc, featuresJSON, galleryJSON]
     );
     
     // 2. Synchronize with products table for inventory catalog status tracking
-    await pool.query(
-      'INSERT INTO products (slug, stockStatus, visible, inventoryCount, lowStockThreshold, supplierEmail) VALUES (?, "in-stock", 1, ?, ?, "supplier@algani.com")',
-      [slug, parseInt(inventoryCount) || 100, parseInt(lowStockThreshold) || 10]
+    const count = inventoryCount ?? 0;
+    const threshold = lowStockThreshold ?? 10;
+    await connection.query(
+      'INSERT INTO products (slug, stockStatus, visible, inventoryCount, lowStockThreshold, supplierEmail) VALUES (?, ?, 1, ?, ?, "")',
+      [slug, count === 0 ? 'out-of-stock' : count <= threshold ? 'low-stock' : 'in-stock', count, threshold]
     );
     
-    res.json({ success: true, slug, name });
+    await connection.commit();
+    res.status(201).json({ success: true, slug, name });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error(err);
-    res.status(500).json({ error: 'Failed to create new catalog offering. Slug might already exist.' });
+    res.status(err.code === 'ER_DUP_ENTRY' ? 409 : 500).json({ error: err.code === 'ER_DUP_ENTRY' ? 'An offering with this name or URL already exists.' : 'Failed to create new catalog offering.' });
+  } finally {
+    connection?.release();
   }
 });
 
@@ -883,7 +898,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     }
 
     const admin = rows[0];
-    const isPasswordValid = bcrypt.compareSync(password, admin.password);
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
     if (!isPasswordValid) {
       return res.status(401).json({ code: 'auth/invalid-credential', error: 'Invalid email or password.' });
     }
@@ -908,56 +923,6 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     res.status(500).json({ error: 'Internal server login transaction failed' });
   }
 });
-
-// Helper to automatically decrement inventory count and trigger low stock alerts
-async function decrementInventory(slug, decrement = 5) {
-  try {
-    const [rows] = await pool.query('SELECT * FROM products WHERE slug = ?', [slug]);
-    if (rows.length === 0) return;
-    
-    const product = rows[0];
-    const currentInventory = product.inventoryCount !== null ? product.inventoryCount : 100;
-    const threshold = product.lowStockThreshold !== null ? product.lowStockThreshold : 10;
-    
-    let newInventory = currentInventory - decrement;
-    if (newInventory < 0) newInventory = 0;
-    
-    let newStatus = product.stockStatus || 'in-stock';
-    if (newInventory === 0) {
-      newStatus = 'out-of-stock';
-    } else if (newInventory <= threshold) {
-      newStatus = 'low-stock';
-    }
-    
-    await pool.query(
-      'UPDATE products SET inventoryCount = ?, stockStatus = ? WHERE slug = ?',
-      [newInventory, newStatus, slug]
-    );
-    console.log(`[INVENTORY] Decremented ${slug} by ${decrement}. New level: ${newInventory}/${currentInventory} (${newStatus})`);
-    
-    // Trigger alert if we crossed the threshold
-    if (newInventory <= threshold && currentInventory > threshold) {
-      const email = product.supplierEmail || 'supplier@algani.com';
-      const alertId = 'alt-' + crypto.randomUUID();
-      const createdAt = new Date().toISOString();
-      const alertMessage = `CRITICAL: Stock for service/product '${slug}' has dropped to ${newInventory} (Threshold: ${threshold}). Please arrange urgent resupply dispatch.`;
-      
-      await pool.query(
-        'INSERT INTO inventory_alerts (id, slug, message, emailSentTo, status, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
-        [alertId, slug, alertMessage, email, 'unread', createdAt]
-      );
-      
-      console.log(`\n======================================================`);
-      console.log(`⚠️  [LOW-STOCK ALERT TRIGGERED]`);
-      console.log(`🚨 Product: ${slug}`);
-      console.log(`📉 Current Level: ${newInventory} units (Threshold: ${threshold})`);
-      console.log(`📧 Simulated Email Alert Sent To Supplier: ${email}`);
-      console.log(`======================================================\n`);
-    }
-  } catch (err) {
-    console.error('Error in decrementInventory:', err);
-  }
-}
 
 // 2. Fetch Customer Inquiries List
 app.get('/api/inquiries', requireAuth, async (req, res) => {
@@ -990,7 +955,7 @@ app.post('/api/inquiries', contactLimiter, async (req, res) => {
   if (phone && (typeof phone !== 'string' || phone.trim().length > 50)) {
     return res.status(400).json({ error: 'Phone number is too long' });
   }
-  if (subject && (typeof subject !== 'string' || subject.trim().length > 300)) {
+  if (subject && (typeof subject !== 'string' || subject.trim().length > 200)) {
     return res.status(400).json({ error: 'Subject is too long' });
   }
   if (service && (typeof service !== 'string' || service.trim().length > 100)) {
@@ -1005,7 +970,7 @@ app.post('/api/inquiries', contactLimiter, async (req, res) => {
 
   // Clean inputs
   name = sanitizeInput(name.trim());
-  email = sanitizeInput(email.trim());
+  email = email.trim();
   message = sanitizeInput(message.trim());
   phone = phone ? sanitizeInput(phone.trim()) : '';
   subject = subject ? sanitizeInput(subject.trim()) : '';
@@ -1023,25 +988,13 @@ app.post('/api/inquiries', contactLimiter, async (req, res) => {
       [id, name, email, phone, subject, service, location, message, 'pending', createdAt, storedProductName]
     );
 
-    if (service) {
-      try {
-        await decrementInventory(service, 5);
-      } catch (err) {
-        console.error('[inventory] decrement after inquiry failed:', err);
-      }
-    }
-    
-    const emailProductName = await resolveProductName(pool, { slug: service, productName });
-    try {
-      await sendOrderStatusEmail({
+    // An inquiry is a request for a quote, not a stock reservation.
+    enqueueOrderStatusEmail({
         to: email,
         customerName: name,
-        productName: emailProductName,
+        productName: storedProductName,
         statusKey: 'pending',
-      });
-    } catch (mailErr) {
-      console.error('[email] Failed to send customer inquiry email:', mailErr);
-    }
+    });
 
     res.status(201).json({
       id,
@@ -1066,6 +1019,13 @@ app.post('/api/inquiries', contactLimiter, async (req, res) => {
 app.put('/api/inquiries/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   let { status, convertedToOrder, isDeleted } = req.body;
+  if (status !== undefined && !INQUIRY_STATUSES.has(status)) {
+    return res.status(400).json({ error: 'Invalid inquiry status' });
+  }
+  if ((convertedToOrder !== undefined && !isBoolean(convertedToOrder)) ||
+      (isDeleted !== undefined && !isBoolean(isDeleted))) {
+    return res.status(400).json({ error: 'Inquiry flags must be true or false' });
+  }
   
   try {
     const [rows] = await pool.query('SELECT * FROM inquiries WHERE id = ?', [id]);
@@ -1099,7 +1059,7 @@ app.put('/api/inquiries/:id', requireAuth, async (req, res) => {
         productName: inquiry.productName,
       });
       try {
-        await sendOrderStatusEmail({
+        enqueueOrderStatusEmail({
           to: inquiry.email,
           customerName: inquiry.name,
           productName: resolvedProductName,
@@ -1184,16 +1144,20 @@ app.post('/api/orders', requireAuth, async (req, res) => {
   }
 
   // Validate inputs
-  if (typeof clientName !== 'string' || clientName.trim().length > 200 ||
-      typeof service !== 'string' || service.trim().length > 100 ||
-      typeof region !== 'string' || region.trim().length > 200) {
+  if (typeof clientName !== 'string' || !clientName.trim() || clientName.trim().length > 200 ||
+      typeof service !== 'string' || !service.trim() || service.trim().length > 100 ||
+      typeof region !== 'string' || !region.trim() || region.trim().length > 200) {
     return res.status(400).json({ error: 'Invalid client name, service, or region' });
   }
   if (notes && (typeof notes !== 'string' || notes.trim().length > 5000)) {
     return res.status(400).json({ error: 'Notes are too long' });
   }
-  if (customerEmail && (typeof customerEmail !== 'string' || customerEmail.trim().length > 250)) {
-    return res.status(400).json({ error: 'Customer email is too long' });
+  if (customerEmail && (typeof customerEmail !== 'string' || !isEmail(customerEmail.trim()))) {
+    return res.status(400).json({ error: 'Invalid customer email' });
+  }
+  if (inquiryId !== undefined && inquiryId !== null &&
+      (typeof inquiryId !== 'string' || !/^inq-[a-zA-Z0-9-]+$/.test(inquiryId) || inquiryId.length > 255)) {
+    return res.status(400).json({ error: 'Invalid inquiry reference' });
   }
   if (productName && (typeof productName !== 'string' || productName.trim().length > 200)) {
     return res.status(400).json({ error: 'Product name is too long' });
@@ -1203,15 +1167,31 @@ app.post('/api/orders', requireAuth, async (req, res) => {
   service = sanitizeInput(service.trim());
   region = sanitizeInput(region.trim());
   notes = notes ? sanitizeInput(notes.trim()) : '';
-  customerEmail = customerEmail ? sanitizeInput(customerEmail.trim()) : '';
+  customerEmail = customerEmail ? customerEmail.trim() : '';
   productName = productName ? sanitizeInput(productName.trim()) : '';
 
+  let connection;
   try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    if (inquiryId) {
+      const [inquiries] = await connection.query('SELECT * FROM inquiries WHERE id = ? FOR UPDATE', [inquiryId]);
+      if (!inquiries.length || inquiries[0].isDeleted) {
+        await connection.rollback();
+        return res.status(404).json({ error: 'Inquiry not found' });
+      }
+      const [linkedOrders] = await connection.query('SELECT id FROM orders WHERE inquiryId = ? LIMIT 1', [inquiryId]);
+      if (inquiries[0].convertedToOrder || linkedOrders.length) {
+        await connection.rollback();
+        return res.status(409).json({ error: 'This inquiry already has a delivery order' });
+      }
+      customerEmail = customerEmail || inquiries[0].email;
+    }
     const id = 'ord-' + crypto.randomUUID();
     const createdAt = new Date().toISOString();
-    const resolvedProductName = await resolveProductName(pool, { slug: service, productName });
+    const resolvedProductName = await resolveProductName(connection, { slug: service, productName });
     
-    await pool.query(
+    await connection.query(
       'INSERT INTO orders (id, clientName, service, region, notes, status, createdAt, updatedAt, inquiryId, customerEmail, productName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         id,
@@ -1227,10 +1207,11 @@ app.post('/api/orders', requireAuth, async (req, res) => {
         resolvedProductName,
       ]
     );
-
-    if (service) {
-      await decrementInventory(service, 10);
+    if (inquiryId) {
+      await connection.query('UPDATE inquiries SET convertedToOrder = 1 WHERE id = ?', [inquiryId]);
     }
+    await connection.commit();
+    // Stock changes require confirmed quantities; this delivery form does not collect them.
 
     res.status(201).json({
       id,
@@ -1246,8 +1227,11 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       productName: resolvedProductName,
     });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error(err);
     res.status(500).json({ error: 'Failed to schedule delivery order' });
+  } finally {
+    connection?.release();
   }
 });
 
@@ -1280,11 +1264,17 @@ app.put('/api/orders/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   let { status } = req.body;
   const updatedAt = new Date().toISOString();
-  const deliveryStatuses = new Set(['delivered', 'shipped']);
+  if (!ORDER_STATUSES.has(status)) {
+    return res.status(400).json({ error: 'Status must be new, approved, shipped, or delivered' });
+  }
 
+  let connection;
   try {
-    const [rows] = await pool.query('SELECT * FROM orders WHERE id = ?', [id]);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [rows] = await connection.query('SELECT * FROM orders WHERE id = ? FOR UPDATE', [id]);
     if (rows.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: 'Order not found' });
     }
 
@@ -1299,18 +1289,21 @@ app.put('/api/orders/:id', requireAuth, async (req, res) => {
     }
     const nextStatus = (status || '').toLowerCase();
 
-    await pool.query('UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?', [status, updatedAt, id]);
+    await connection.query('UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?', [status, updatedAt, id]);
 
     const shouldApprove = nextStatus === 'approved' && previousStatus !== 'approved';
-    const shouldDeliver =
-      deliveryStatuses.has(nextStatus) && !deliveryStatuses.has(previousStatus);
+    const shouldDeliver = nextStatus === 'delivered' && previousStatus !== 'delivered';
+    if (shouldDeliver && order.inquiryId) {
+      await connection.query('UPDATE inquiries SET status = ? WHERE id = ?', ['delivered', order.inquiryId]);
+    }
+    await connection.commit();
 
     if (shouldApprove || shouldDeliver) {
       try {
         const customerCtx = await resolveOrderCustomerContext(pool, order);
 
         if (shouldApprove) {
-          await sendOrderStatusEmail({
+          enqueueOrderStatusEmail({
             to: customerCtx.customerEmail,
             customerName: customerCtx.customerName,
             productName: customerCtx.productName,
@@ -1319,13 +1312,7 @@ app.put('/api/orders/:id', requireAuth, async (req, res) => {
         }
 
         if (shouldDeliver) {
-          if (order.inquiryId) {
-            await pool.query('UPDATE inquiries SET status = ? WHERE id = ?', [
-              'delivered',
-              order.inquiryId,
-            ]);
-          }
-          await sendOrderStatusEmail({
+          enqueueOrderStatusEmail({
             to: customerCtx.customerEmail,
             customerName: customerCtx.customerName,
             productName: customerCtx.productName,
@@ -1339,8 +1326,11 @@ app.put('/api/orders/:id', requireAuth, async (req, res) => {
 
     res.json({ success: true, id, status, updatedAt });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error(err);
     res.status(500).json({ error: 'Failed to update delivery status' });
+  } finally {
+    connection?.release();
   }
 });
 
@@ -1370,6 +1360,11 @@ app.get('/api/products', requireAuth, async (req, res) => {
 app.put('/api/products/:slug', requireAuth, async (req, res) => {
   const { slug } = req.params;
   let { stockStatus, visible, inventoryCount, lowStockThreshold, supplierEmail } = req.body;
+  const inventoryError = validateInventory(req.body);
+  if (inventoryError) return res.status(400).json({ error: inventoryError });
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 200) {
+    return res.status(400).json({ error: 'Invalid product slug' });
+  }
 
   try {
     const [rows] = await pool.query('SELECT * FROM products WHERE slug = ?', [slug]);
@@ -1384,7 +1379,7 @@ app.put('/api/products/:slug', requireAuth, async (req, res) => {
       if (typeof supplierEmail !== 'string' || supplierEmail.trim().length > 250) {
         return res.status(400).json({ error: 'Invalid supplier email' });
       }
-      supplierEmail = sanitizeInput(supplierEmail.trim());
+      supplierEmail = supplierEmail.trim();
     }
 
     if (rows.length === 0) {
@@ -1455,6 +1450,12 @@ app.put('/api/auth/change-password', requireAuth, async (req, res) => {
   if (newPassword.length < 8) {
     return res.status(400).json({ error: 'New password must be at least 8 characters long' });
   }
+  if (Buffer.byteLength(newPassword, 'utf8') > 72) {
+    return res.status(400).json({ error: 'New password must be at most 72 UTF-8 bytes' });
+  }
+  if (email !== req.admin.email) {
+    return res.status(403).json({ error: 'You can only change your own password' });
+  }
 
   try {
     const [rows] = await pool.query('SELECT * FROM admins WHERE email = ?', [email]);
@@ -1463,12 +1464,12 @@ app.put('/api/auth/change-password', requireAuth, async (req, res) => {
     }
 
     const admin = rows[0];
-    const isPasswordValid = bcrypt.compareSync(currentPassword, admin.password);
+    const isPasswordValid = await bcrypt.compare(currentPassword, admin.password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Incorrect current password' });
     }
 
-    const hashedNewPassword = bcrypt.hashSync(newPassword, 10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     await pool.query('UPDATE admins SET password = ? WHERE email = ?', [hashedNewPassword, email]);
     res.json({ success: true, message: 'Password updated successfully' });
 
@@ -1499,6 +1500,9 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 // Built frontend (Vite copies public/ into dist/ on npm run build)
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
+});
 app.use(express.static(FRONTEND_DIST));
 
 // Redirect route for SPA index.html matching fallback
@@ -1513,6 +1517,13 @@ app.use((req, res) => {
 
 // Global error handling middleware (prevents stack trace disclosure)
 app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Request body contains invalid JSON' });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body is too large' });
+  }
   console.error('[Error Handler]', err);
   res.status(500).json({
     error: 'An unexpected internal server error occurred.',
@@ -1520,11 +1531,16 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Listen immediately (Render health check); init DB in background
-app.listen(PORT, () => {
+// Listen immediately (Render health check); init DB in background.
+function startServer() {
+  return app.listen(PORT, () => {
   console.log(`🚀 Server listening on http://localhost:${PORT}`);
   initDatabase().catch((err) => {
     lastDbError = err.message || String(err);
     console.error('Database init failed:', err);
   });
-});
+  });
+}
+
+if (require.main === module) startServer();
+module.exports = { app, startServer };

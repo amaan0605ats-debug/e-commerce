@@ -1,142 +1,112 @@
-import { serviceCategories, services } from '../data/services.js';
+const navigation = [
+  { path: '/', label: 'Home', id: 'home' },
+  { path: '/about', label: 'About', id: 'about' },
+  { path: '/services', label: 'Offerings', id: 'services' },
+  { path: '/contact', label: 'Contact', id: 'contact' },
+];
 
 export function createNavbar() {
   const nav = document.createElement('nav');
   nav.className = 'navbar';
   nav.id = 'main-navbar';
+  nav.setAttribute('aria-label', 'Main navigation');
 
   nav.innerHTML = `
     <div class="nav-container">
-      <a href="#/" class="nav-logo" id="nav-logo">
-        <span class="nav-logo-text">AL GAN<span class="nav-logo-accent">I</span></span>
-        <span class="nav-logo-dot"></span>
-        <span class="nav-logo-sub">General Suppliers</span>
+      <a href="#/" class="nav-logo" id="nav-logo" aria-label="Al Gani General Suppliers — home">
+        <img class="brand-mark" src="/images/algani-mark-192.png" alt="" width="48" height="48">
+        <span class="nav-brand-copy">
+          <span class="nav-logo-text">AL GANI<span class="nav-logo-dot" aria-hidden="true">.</span></span>
+          <span class="nav-logo-sub">General Suppliers</span>
+        </span>
       </a>
 
       <div class="nav-links" id="nav-links">
-        <a href="#/" class="nav-link active" id="nav-home">Home</a>
-        <a href="#/about" class="nav-link" id="nav-about">About</a>
-        <div class="nav-dropdown" id="nav-services-dropdown">
-          <a href="#/services" class="nav-link nav-link-dropdown" id="nav-services">
-            Services
-            <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </a>
-          <div class="mega-menu" id="mega-menu">
-            <div class="mega-menu-inner">
-              ${serviceCategories.map(cat => `
-                <div class="mega-menu-column">
-                  <div class="mega-menu-category">${cat.name}</div>
-                  <div class="mega-menu-items">
-                    ${cat.services.map(slug => {
-                      const service = services.find(s => s.slug === slug);
-                      return service ? `
-                        <a href="#/services/${service.slug}" class="mega-menu-item" id="mega-${service.slug}">
-                          <span class="mega-menu-icon">${service.icon}</span>
-                          <span class="mega-menu-name">${service.name}</span>
-                        </a>
-                      ` : '';
-                    }).join('')}
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        </div>
-        <a href="#/contact" class="nav-link" id="nav-contact">Contact</a>
+        ${navigation.map(item => `<a href="#${item.path}" class="nav-link" id="nav-${item.id}">${item.label}</a>`).join('')}
       </div>
 
-      <a href="#/contact" class="nav-cta" id="nav-cta-btn">Get In Touch</a>
-
-      <button class="nav-hamburger" id="nav-hamburger" aria-label="Toggle navigation menu">
-        <span class="hamburger-line"></span>
-        <span class="hamburger-line"></span>
-        <span class="hamburger-line"></span>
-      </button>
+      <div class="nav-actions">
+        <a href="#/quote" class="nav-quote nav-link" id="nav-quote">Your list <span class="quote-count" data-quote-count>0</span></a>
+        <a href="#/contact" class="nav-cta" id="nav-cta-btn">Request a quote <span aria-hidden="true">↗</span></a>
+        <button type="button" class="nav-hamburger" id="nav-hamburger" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobile-menu">
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+        </button>
+      </div>
     </div>
 
-    <!-- Mobile Menu -->
-    <div class="mobile-menu" id="mobile-menu">
+    <div class="mobile-menu" id="mobile-menu" hidden inert aria-hidden="true">
       <div class="mobile-menu-inner">
-        <a href="#/" class="mobile-link" id="mobile-home">Home</a>
-        <a href="#/about" class="mobile-link" id="mobile-about">About</a>
-        <div class="mobile-accordion" id="mobile-services-accordion">
-          <button class="mobile-link mobile-accordion-trigger" id="mobile-services-trigger">
-            Services
-            <svg class="mobile-chevron" width="16" height="16" viewBox="0 0 12 12" fill="none">
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <div class="mobile-accordion-content" id="mobile-services-content">
-            ${serviceCategories.map(cat => `
-              <div class="mobile-category-label">${cat.name}</div>
-              ${cat.services.map(slug => {
-                const service = services.find(s => s.slug === slug);
-                return service ? `
-                  <a href="#/services/${service.slug}" class="mobile-service-link" id="mobile-${service.slug}">
-                    <span>${service.icon}</span> ${service.name}
-                  </a>
-                ` : '';
-              }).join('')}
-            `).join('')}
-          </div>
-        </div>
-        <a href="#/contact" class="mobile-link" id="mobile-contact">Contact</a>
-        <a href="#/contact" class="mobile-cta" id="mobile-cta-btn">Get In Touch</a>
+        ${navigation.map(item => `<a href="#${item.path}" class="mobile-link nav-link" id="mobile-${item.id}">${item.label}</a>`).join('')}
+        <a href="#/quote" class="mobile-link nav-link" id="mobile-quote">Your quote list <span class="quote-count" data-quote-count>0</span></a>
+        <a href="#/contact" class="mobile-cta" id="mobile-cta-btn">Request a quote <span aria-hidden="true">↗</span></a>
       </div>
     </div>
   `;
 
-  // Event listeners bound directly to navbar elements
   const hamburger = nav.querySelector('#nav-hamburger');
   const mobileMenu = nav.querySelector('#mobile-menu');
-  const mobileLinks = mobileMenu?.querySelectorAll('.mobile-link:not(.mobile-accordion-trigger), .mobile-service-link, .mobile-cta');
-  const accordionTrigger = nav.querySelector('#mobile-services-trigger');
-  const accordionContent = nav.querySelector('#mobile-services-content');
+  let isOpen = false;
 
-  // Hamburger toggle
-  hamburger?.addEventListener('click', () => {
-    hamburger.classList.toggle('active');
-    mobileMenu?.classList.toggle('open');
-    document.body.classList.toggle('menu-open');
+  function setMenuOpen(open, restoreFocus = false) {
+    isOpen = open;
+    hamburger.classList.toggle('active', open);
+    hamburger.setAttribute('aria-expanded', String(open));
+    hamburger.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+    mobileMenu.classList.toggle('open', open);
+    mobileMenu.hidden = !open;
+    mobileMenu.inert = !open;
+    // Keep visibility in sync at every responsive breakpoint, including tablets.
+    mobileMenu.style.display = open ? 'block' : 'none';
+    mobileMenu.setAttribute('aria-hidden', String(!open));
+    document.body.classList.toggle('menu-open', open);
+    if (restoreFocus) hamburger.focus();
+  }
+
+  hamburger.addEventListener('click', () => setMenuOpen(!isOpen));
+
+  nav.addEventListener('click', event => {
+    const link = event.target.closest('a[href]');
+    if (!link) return;
+    // Same-page links do not fire hashchange, so return focus to a visible control.
+    const samePage = link.hash === (window.location.hash || '#/');
+    setMenuOpen(false, samePage && mobileMenu.contains(link));
   });
 
-  // Close mobile menu on link click
-  mobileLinks?.forEach(link => {
-    link.addEventListener('click', () => {
-      hamburger?.classList.remove('active');
-      mobileMenu?.classList.remove('open');
-      document.body.classList.remove('menu-open');
-    });
-  });
-
-  // Mobile accordion
-  accordionTrigger?.addEventListener('click', () => {
-    accordionContent?.classList.toggle('open');
-    accordionTrigger.classList.toggle('open');
-  });
-
-  // Logo click behavior (Scroll to top if already at Home)
-  const logo = nav.querySelector('#nav-logo');
-  logo?.addEventListener('click', (e) => {
-    const hash = window.location.hash || '#/';
-    if (hash === '#/' || hash === '#') {
-      e.preventDefault();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  nav.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && isOpen) {
+      event.preventDefault();
+      setMenuOpen(false, true);
     }
   });
 
-  // Scroll behavior for navbar
-  let lastScroll = 0;
-  window.addEventListener('scroll', () => {
-    if (window.scrollY > 80) {
-      nav.classList.add('scrolled');
-    } else {
-      nav.classList.remove('scrolled');
-    }
-    lastScroll = window.scrollY;
+  // This is a disclosure, so keyboard users can tab out without a focus trap.
+  nav.addEventListener('focusout', event => {
+    if (isOpen && event.relatedTarget && !nav.contains(event.relatedTarget)) setMenuOpen(false);
   });
+
+  document.addEventListener('click', event => {
+    if (isOpen && !nav.contains(event.target)) setMenuOpen(false);
+  });
+
+  window.addEventListener('hashchange', () => setMenuOpen(false));
+  window.addEventListener('resize', () => {
+    if (isOpen && getComputedStyle(hamburger).display === 'none') setMenuOpen(false);
+  });
+
+  nav.querySelector('#nav-logo').addEventListener('click', event => {
+    setMenuOpen(false);
+    if (!window.location.hash || window.location.hash === '#/') {
+      event.preventDefault();
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reducedMotion ? 'instant' : 'smooth' });
+    }
+  });
+
+  const updateScrollState = () => nav.classList.toggle('scrolled', window.scrollY > 32);
+  window.addEventListener('scroll', updateScrollState, { passive: true });
+  updateScrollState();
 
   return nav;
 }

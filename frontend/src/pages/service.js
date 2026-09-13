@@ -1,333 +1,61 @@
-import { getServiceBySlug, getRelatedServices, services } from '../data/services.js';
+import { getServiceBySlug, getRelatedServices, services, serviceCategories } from '../data/services.js';
 import { getCachedProducts } from '../firebase.js';
-
-export function renderService(params) {
-  const service = getServiceBySlug(params.slug);
-  
-  if (!service) {
-    return renderServicesIndex();
-  }
-
-  const related = getRelatedServices(service.slug, 4);
-  const imgPath = `/images/${service.slug}.webp`;
-  const imgPath2 = `/images/${service.slug}-2.webp`;
-  const imgPath3 = `/images/${service.slug}-3.webp`;
-
-  return `
-    <!-- SERVICE HERO -->
-    <section class="service-hero" id="service-hero">
-      <div class="service-hero-bg"></div>
-      
-      <!-- Decorative floating particles -->
-      <div style="position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0;">
-        <div style="position:absolute; width:4px; height:4px; background:rgba(224,176,80,0.3); border-radius:50%; top:15%; left:10%; animation: floatParticle 8s ease-in-out infinite; box-shadow: 0 0 8px rgba(224,176,80,0.2);"></div>
-        <div style="position:absolute; width:3px; height:3px; background:rgba(224,176,80,0.25); border-radius:50%; top:25%; right:15%; animation: floatParticle 10s ease-in-out infinite 1s; box-shadow: 0 0 6px rgba(224,176,80,0.15);"></div>
-        <div style="position:absolute; width:5px; height:5px; background:rgba(224,176,80,0.2); border-radius:50%; bottom:20%; left:20%; animation: floatParticle 12s ease-in-out infinite 2s; box-shadow: 0 0 10px rgba(224,176,80,0.15);"></div>
-        <div style="position:absolute; width:3px; height:3px; background:rgba(224,176,80,0.3); border-radius:50%; top:40%; right:8%; animation: floatParticle 9s ease-in-out infinite 3s; box-shadow: 0 0 6px rgba(224,176,80,0.2);"></div>
-        <div style="position:absolute; width:4px; height:4px; background:rgba(224,176,80,0.15); border-radius:50%; bottom:35%; right:25%; animation: floatParticle 11s ease-in-out infinite 4s; box-shadow: 0 0 8px rgba(224,176,80,0.1);"></div>
-        <div style="position:absolute; width:2px; height:2px; background:rgba(251,243,227,0.2); border-radius:50%; top:60%; left:5%; animation: floatParticle 7s ease-in-out infinite 2.5s;"></div>
-        <div style="position:absolute; width:2px; height:2px; background:rgba(251,243,227,0.15); border-radius:50%; top:10%; left:45%; animation: floatParticle 13s ease-in-out infinite 5s;"></div>
-        
-        <!-- Decorative diamond ornaments -->
-        <div style="position:absolute; top:12%; left:8%; width:24px; height:24px; border:1px solid rgba(200,146,42,0.08); transform:rotate(45deg); border-radius:2px;"></div>
-        <div style="position:absolute; top:18%; left:10%; width:12px; height:12px; border:1px solid rgba(200,146,42,0.06); transform:rotate(45deg); border-radius:1px;"></div>
-        <div style="position:absolute; bottom:15%; right:10%; width:20px; height:20px; border:1px solid rgba(200,146,42,0.08); transform:rotate(45deg); border-radius:2px;"></div>
-        <div style="position:absolute; bottom:20%; right:12%; width:10px; height:10px; border:1px solid rgba(200,146,42,0.06); transform:rotate(45deg); border-radius:1px;"></div>
-        
-        <!-- Horizontal decorative lines -->
-        <div style="position:absolute; top:50%; left:0; width:120px; height:1px; background: linear-gradient(90deg, transparent, rgba(200,146,42,0.1), transparent);"></div>
-        <div style="position:absolute; top:50%; right:0; width:120px; height:1px; background: linear-gradient(90deg, transparent, rgba(200,146,42,0.1), transparent);"></div>
-      </div>
-      
-      <style>
-        @keyframes floatParticle {
-          0%, 100% { transform: translateY(0) translateX(0); opacity: 0.3; }
-          25% { transform: translateY(-15px) translateX(8px); opacity: 0.7; }
-          50% { transform: translateY(-25px) translateX(-5px); opacity: 0.5; }
-          75% { transform: translateY(-10px) translateX(12px); opacity: 0.8; }
-        }
-      </style>
-      
-      <div class="container">
-        <div class="service-hero-content animate-on-scroll">
-          <div class="breadcrumb">
-            <a href="#/">Home</a>
-            <span class="breadcrumb-sep">◆</span>
-            <a href="#/services">Services</a>
-            <span class="breadcrumb-sep">◆</span>
-            <span>${service.name}</span>
-          </div>
-          <div class="service-hero-icon">${service.icon}</div>
-          <span class="service-hero-tag">${service.tag}</span>
-          <h1 class="service-hero-title">${service.name}</h1>
-          <div class="section-rule"></div>
-          <p class="service-hero-subtitle" style="margin-bottom: 24px;">${service.shortDesc}</p>
-          <div>
-            <a href="#/contact?service=${service.slug}" class="btn btn-primary btn-lg" id="service-hero-buy-btn">Buy / Inquire Now</a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SERVICE IMAGE BANNER -->
-    <section class="service-image-section" id="service-image">
-      <div class="container">
-        <div class="service-image-grid animate-on-scroll">
-          <div class="service-image-card service-image-large">
-            <img src="${imgPath}" onerror="this.src='/images/general-commercial-supplies.webp'" alt="${service.name} Overview" class="service-img" loading="lazy">
-          </div>
-          <div class="service-image-card">
-            <img src="${imgPath2}" onerror="this.src='/images/general-commercial-supplies-2.webp'" alt="${service.name} Detail" class="service-img" loading="lazy">
-          </div>
-          <div class="service-image-card">
-            <img src="${imgPath3}" onerror="this.src='/images/general-commercial-supplies-3.webp'" alt="${service.name} Close-up" class="service-img" loading="lazy">
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SERVICE DESCRIPTION -->
-    <section class="service-description" id="service-description">
-      <div class="container">
-        <div class="service-desc-grid">
-          <div class="service-desc-main animate-on-scroll">
-            <div class="section-label">Overview</div>
-            <h2 class="section-title" style="font-size: 30px;">About This <em>Service</em></h2>
-            <div class="section-rule"></div>
-            ${service.longDesc.split('\n\n').map(p => `<p class="body-text" style="margin-bottom: 16px;">${p.trim()}</p>`).join('')}
-          </div>
-          <div class="service-desc-sidebar animate-on-scroll">
-            <div class="service-features-box">
-              <h3 class="service-features-title">Key Features</h3>
-              <ul class="service-features-list">
-                ${service.features.map(f => `<li>${f}</li>`).join('')}
-              </ul>
-            </div>
-             <div class="service-cta-box">
-              <h3 class="service-cta-title">Order / Inquire</h3>
-              <p class="service-cta-text">Ready to purchase or need custom dimensions? Contact our supply team to place your order or request specifications.</p>
-              <a href="#/contact?service=${service.slug}" class="btn btn-primary" id="service-cta-btn" style="width: 100%; text-align: center;">Buy / Inquire Now</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- RELATED SERVICES -->
-    <section class="related-section" id="related-services">
-      <div class="container">
-        <div class="ornament-line animate-on-scroll"><span>Explore More Services</span></div>
-        <div class="related-grid">
-          ${related.map(s => `
-            <a href="#/services/${s.slug}" class="related-card animate-on-scroll" id="related-${s.slug}">
-              <div class="related-card-img">
-                <img src="/images/${s.slug}.webp" onerror="this.src='/images/general-commercial-supplies.webp'" alt="${s.name}" loading="lazy">
-              </div>
-              <div class="related-card-body">
-                <div class="related-card-icon">${s.icon}</div>
-                <h4 class="related-card-name">${s.name}</h4>
-                <p class="related-card-desc">${s.shortDesc.substring(0, 80)}...</p>
-                <span class="related-card-link">Learn More →</span>
-              </div>
-            </a>
-          `).join('')}
-        </div>
-      </div>
-    </section>
-
-    <!-- CTA -->
-    <section class="cta-banner" id="service-page-cta">
-      <div class="cta-banner-bg"></div>
-      <div class="container" style="position: relative; z-index: 1;">
-        <div class="cta-content animate-on-scroll">
-          <h2 class="cta-title">Ready to Buy <em>${service.name}?</em></h2>
-          <p class="cta-subtitle">Place your order or request a custom quotation today. Our Kashmiri logistics team is ready to deliver.</p>
-          <a href="#/contact?service=${service.slug}" class="btn btn-primary btn-lg" id="service-final-cta">Buy / Place Order Inquiry</a>
-        </div>
-      </div>
-    </section>
-  `;
-}
+import { offeringCard, escapeHtml, serviceImage, applyProductStatus } from '../components/offering-card.js';
 
 export function renderServicesIndex() {
-  return `
-    <!-- SERVICES INDEX HERO -->
-    <section class="page-hero" id="services-hero">
-      <div class="page-hero-bg"></div>
-      <div class="container">
-        <div class="page-hero-content animate-on-scroll">
-          <div class="breadcrumb">
-            <a href="#/">Home</a>
-            <span class="breadcrumb-sep">◆</span>
-            <span>All Services</span>
-          </div>
-          <div class="section-label" style="color: var(--gold);">What We Offer</div>
-          <h1 class="page-hero-title">Our Complete <em>Service Portfolio</em></h1>
-          <div class="section-rule"></div>
-          <p class="page-hero-subtitle">Explore our full range of supply and distribution services across Kashmir and the Leh region.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- FILTER TABS -->
-    <section class="services-filter-section" id="services-filter" style="padding: 48px 0 20px; background: var(--cream); text-align: center;">
-      <div class="container">
-        <div class="filter-tabs animate-on-scroll">
-          <button class="filter-btn active" data-filter="all">All Offerings</button>
-          <button class="filter-btn" data-filter="Core Supply">Core Supply</button>
-          <button class="filter-btn" data-filter="Automated Solutions">Automated Solutions</button>
-          <button class="filter-btn" data-filter="Specialized & Engineering">Specialized & Engineering</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ALL SERVICES GRID -->
-    <section class="services-index" id="services-index" style="padding-top: 20px;">
-      <div class="container">
-        <div class="services-grid">
-          ${services.map((service, i) => `
-            <a href="#/services/${service.slug}" class="service-card animate-on-scroll" id="idx-${service.slug}" style="animation-delay: ${i * 0.04}s" data-category="${service.category}">
-              <div class="service-card-img-wrap">
-                <img src="/images/${service.slug}.webp" onerror="this.src='/images/general-commercial-supplies.webp'" alt="${service.name}" class="service-card-img" loading="lazy">
-              </div>
-              <div class="service-card-icon">${service.icon}</div>
-              <h3 class="service-card-name">${service.name}</h3>
-              <p class="service-card-desc">${service.shortDesc}</p>
-              <div class="service-card-footer">
-                <span class="service-card-tag">${service.tag}</span>
-                <span class="service-card-arrow">→</span>
-              </div>
-            </a>
-          `).join('')}
-        </div>
-      </div>
-    </section>
-  `;
+  return `<div class="catalog-page"><section class="catalog-intro editorial-section"><div class="eyebrow">THE AL GANI COLLECTION</div><div class="section-heading-row"><h1>Find your<br><em>next possibility.</em></h1><p>From considered interiors to hardworking equipment.<br>Explore the range and build a quote for your project.</p></div></section>
+    <section class="catalog-toolbar" aria-label="Filter offerings"><div class="catalog-search"><label for="catalog-search">Search the collection</label><div class="search-input-wrap"><span aria-hidden="true">⌕</span><input id="catalog-search" type="search" placeholder="Try kitchens, agriculture, cold storage…" autocomplete="off"></div></div><div class="catalog-sort"><label for="catalog-sort">Sort by</label><select id="catalog-sort"><option value="featured">Featured</option><option value="az">Name: A–Z</option><option value="za">Name: Z–A</option></select></div><div class="filter-tabs"><button class="filter-btn active" data-filter="all" aria-pressed="true">All offerings</button>${serviceCategories.map(c=>`<button class="filter-btn" data-filter="${escapeHtml(c.name)}" aria-pressed="false">${escapeHtml(c.name)}</button>`).join('')}</div></section>
+    <section class="editorial-section catalog-results"><div class="results-heading"><p id="catalog-count" role="status" aria-live="polite"></p><button type="button" id="catalog-reset" class="text-link">Reset filters ↺</button></div><div id="catalog-empty" class="catalog-empty" hidden><span aria-hidden="true">⌕</span><h2>No matches. Still possibilities.</h2><p>Try a broader term or let us help source what you need.</p><a href="#/contact" class="btn btn-primary">Ask our team ↗</a></div><div class="offering-grid catalog-grid">${services.map(offeringCard).join('')}</div></section></div>`;
 }
-
-// ── DYNAMIC BACKEND DATABASE BINDINGS FOR PUBLIC PAGES ──
-
+export function filterCatalog() {
+  const host=document.querySelector('.catalog-page'); if(!host) return;
+  const term=host.querySelector('#catalog-search').value.trim().toLowerCase();
+  const category=host.querySelector('.filter-btn.active')?.dataset.filter || 'all';
+  const sort=host.querySelector('#catalog-sort').value;
+  const cards=[...host.querySelectorAll('.offering-card')];
+  const ordered=sort==='featured'?cards.sort((a,b)=>services.findIndex(s=>s.slug===a.dataset.slug)-services.findIndex(s=>s.slug===b.dataset.slug)):cards.sort((a,b)=>a.dataset.name.localeCompare(b.dataset.name)*(sort==='za'?-1:1));
+  let count=0;
+  ordered.forEach(card=>{const show=card.dataset.dbHidden!=='true' && (category==='all'||card.dataset.category===category) && card.dataset.search.toLowerCase().includes(term);card.hidden=!show;if(show)count++;host.querySelector('.catalog-grid').appendChild(card);});
+  host.querySelector('#catalog-count').textContent=`${count} ${count===1?'offering':'offerings'} to explore`;
+  host.querySelector('#catalog-empty').hidden=count>0;
+}
 export async function initServicesIndex() {
-  try {
-    const products = await getCachedProducts();
-    if (!products || !products.length) return;
-    
-    products.forEach(p => {
-      const card = document.getElementById(`idx-${p.slug}`);
-      if (!card) return;
-      
-      // Hide if catalogvisibility is set to false in SQLite/MySQL
-      if (p.visible === 0) {
-        card.style.display = 'none';
-        card.setAttribute('data-db-hidden', 'true');
-        return;
-      }
-      
-      // Add dynamic B2B stock status badge to the card
-      const footer = card.querySelector('.service-card-footer');
-      if (footer) {
-        const badge = document.createElement('span');
-        badge.className = 'service-stock-badge';
-        
-        let stockLabel = '🟢 In Stock';
-        let badgeColor = '#7deca0';
-        if (p.stockStatus === 'low-stock') {
-          stockLabel = '🟡 Low Stock';
-          badgeColor = '#DEC89A';
-        } else if (p.stockStatus === 'out-of-stock') {
-          stockLabel = '🔴 Out of Stock';
-          badgeColor = '#ff6b6b';
-        }
-        
-        badge.innerHTML = stockLabel;
-        badge.style.cssText = `
-          font-family: 'Montserrat', sans-serif;
-          font-size: 10px;
-          font-weight: 700;
-          color: ${badgeColor};
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          margin-right: auto;
-        `;
-        
-        const tag = footer.querySelector('.service-card-tag');
-        if (tag) tag.style.display = 'none';
-        footer.insertBefore(badge, footer.querySelector('.service-card-arrow'));
-      }
-    });
-  } catch (err) {
-    console.error('Error fetching product statuses for index:', err);
-  }
+  const host=document.querySelector('.catalog-page'); if(!host)return;
+  const query=new URLSearchParams(location.hash.split('?')[1]||'');
+  host.querySelector('#catalog-search').value=query.get('q')||'';
+  const selectCategory=value=>host.querySelectorAll('.filter-btn').forEach(b=>{const active=b.dataset.filter===value;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});
+  if(serviceCategories.some(c=>c.name===query.get('category'))) selectCategory(query.get('category'));
+  host.querySelector('#catalog-search').addEventListener('input',filterCatalog);
+  host.querySelector('#catalog-sort').addEventListener('change',filterCatalog);
+  host.querySelectorAll('.filter-btn').forEach(b=>b.addEventListener('click',()=>{selectCategory(b.dataset.filter);filterCatalog();}));
+  host.querySelector('#catalog-reset').addEventListener('click',()=>{host.querySelector('#catalog-search').value='';host.querySelector('#catalog-sort').value='featured';selectCategory('all');filterCatalog();});
+  filterCatalog();
+  const products=await getCachedProducts(); if(!host.isConnected)return;
+  host.querySelectorAll('.offering-card').forEach(card=>applyProductStatus(card,products.find(p=>p.slug===card.dataset.slug)));
+  filterCatalog();
 }
-
+export function renderService(params) {
+  const s=getServiceBySlug(params.slug);
+  if(!s)return `<section class="editorial-section missing-offering"><div class="eyebrow">OFFERING NOT FOUND</div><h1>Let’s find<br><em>a better fit.</em></h1><p>This offering is no longer available at this address.</p><a class="btn btn-primary" href="#/services">Browse the collection ↗</a></section>`;
+  const name=escapeHtml(s.name), slug=escapeHtml(s.slug);
+  return `<div class="detail-page" data-service="${slug}"><div class="detail-breadcrumb"><a href="#/services">Collection</a><span>/</span><span>${name}</span></div>
+    <section class="detail-hero"><div class="detail-gallery"><button class="gallery-main" type="button" data-lightbox="${serviceImage(s.slug)}" aria-label="Enlarge ${name} image"><img id="detail-main-image" src="${serviceImage(s.slug)}" alt="${name}" width="1024" height="1024" onerror="this.onerror=null;this.src='/images/general-commercial-supplies.webp'"><span>View image ↗</span></button><div class="gallery-thumbnails">${['','-2','-3'].map((v,i)=>`<button type="button" class="gallery-thumb ${i===0?'active':''}" data-gallery-src="${serviceImage(s.slug,v)}" aria-label="View ${name} image ${i+1}" aria-pressed="${i===0}"><img src="${serviceImage(s.slug,v)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/images/general-commercial-supplies.webp'"></button>`).join('')}</div><p class="image-disclaimer">Illustrative imagery. Confirm specifications and available models with our team.</p></div><div class="detail-copy"><div class="eyebrow">${escapeHtml(s.category)}</div><h1>${name}</h1><p class="detail-lead">${escapeHtml(s.shortDesc)}</p><div class="detail-availability" role="status">Availability and pricing confirmed on inquiry</div><div class="detail-actions"><button type="button" class="btn btn-primary" data-quote-add="${slug}"><span data-quote-label>Add to quote list</span><span aria-hidden="true">+</span></button><a class="btn btn-outline" href="#/contact?service=${slug}">Ask about this offering ↗</a></div><dl class="detail-facts"><div><dt>Supply region</dt><dd>Kashmir & Leh</dd></div><div><dt>Project requirements</dt><dd>Discuss quantities & specifications</dd></div><div><dt>Need assistance?</dt><dd><a href="tel:+917780901374">+91 7780901374 ↗</a></dd></div></dl></div></section>
+    <section class="editorial-section detail-information"><div><div class="eyebrow">THE DETAILS</div><h2>A closer <em>look.</em></h2>${String(s.longDesc||'').split('\n\n').map(p=>`<p>${escapeHtml(p.trim())}</p>`).join('')}</div><aside><h3>What to expect</h3><ul>${(Array.isArray(s.features)?s.features:[]).map(f=>`<li>${escapeHtml(f)}</li>`).join('')}</ul></aside></section>
+    <section class="editorial-section"><div class="section-heading-row"><div><div class="eyebrow">KEEP EXPLORING</div><h2>More for <em>your project.</em></h2></div><a class="text-link" href="#/services">All offerings ↗</a></div><div class="offering-grid related-offerings">${getRelatedServices(s.slug,3).map(offeringCard).join('')}</div></section></div>`;
+}
 export async function initServiceDetail(slug) {
-  try {
-    const products = await getCachedProducts();
-    if (!products || !products.length) return;
-    
-    const dbProduct = products.find(p => p.slug === slug);
-    if (!dbProduct) return;
-    
-    // Add real-time stock indicator in the hero section
-    const heroContent = document.querySelector('.service-hero-content');
-    if (heroContent) {
-      const badge = document.createElement('div');
-      badge.className = 'service-detail-stock-badge';
-      
-      let stockLabel = '🟢 In Stock - Available for immediate supply';
-      let badgeColor = '#7deca0';
-      if (dbProduct.stockStatus === 'low-stock') {
-        stockLabel = '🟡 Low Stock - Supply queue priority active';
-        badgeColor = '#DEC89A';
-      } else if (dbProduct.stockStatus === 'out-of-stock') {
-        stockLabel = '🔴 Out of Stock - Dispatch delays expected';
-        badgeColor = '#ff6b6b';
-        
-        // Update Buy Button actions to show pre-order conditions
-        const buyBtn = document.getElementById('service-hero-buy-btn');
-        if (buyBtn) {
-          buyBtn.textContent = 'Pre-Order / Inquire Now';
-          buyBtn.style.background = 'transparent';
-          buyBtn.style.border = '2px solid #ff6b6b';
-          buyBtn.style.color = '#ff6b6b';
-        }
-        const ctaBtn = document.getElementById('service-cta-btn');
-        if (ctaBtn) {
-          ctaBtn.textContent = 'Pre-Order / Inquire Now';
-          ctaBtn.style.background = 'transparent';
-          ctaBtn.style.border = '2px solid #ff6b6b';
-          ctaBtn.style.color = '#ff6b6b';
-        }
-        const finalCta = document.getElementById('service-final-cta');
-        if (finalCta) {
-          finalCta.textContent = 'Pre-Order / Place Inquiry';
-          finalCta.style.background = 'transparent';
-          finalCta.style.border = '2px solid #ff6b6b';
-          finalCta.style.color = '#ff6b6b';
-        }
-      }
-      
-      badge.innerHTML = stockLabel;
-      badge.style.cssText = `
-        font-family: 'Montserrat', sans-serif;
-        font-size: 11px;
-        font-weight: 700;
-        color: ${badgeColor};
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        margin-top: 16px;
-        margin-bottom: 8px;
-        display: block;
-      `;
-      
-      const tag = heroContent.querySelector('.service-hero-tag');
-      if (tag) {
-        tag.parentNode.insertBefore(badge, tag.nextSibling);
-      }
-    }
-  } catch (err) {
-    console.error('Error fetching service detail stock:', err);
+  const host=document.querySelector('.detail-page');if(!host)return;
+  host.querySelectorAll('[data-gallery-src]').forEach(button=>button.addEventListener('click',()=>{
+    host.querySelector('#detail-main-image').src=button.dataset.gallerySrc;
+    host.querySelector('.gallery-main').dataset.lightbox=button.dataset.gallerySrc;
+    host.querySelectorAll('[data-gallery-src]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',String(b===button));});
+  }));
+  const products=await getCachedProducts();if(!host.isConnected)return;
+  const product=products.find(p=>p.slug===slug);
+  if(product){
+    const label=host.querySelector('.detail-availability');
+    label.textContent=({'in-stock':'In stock · Confirm quantity and delivery with our team','low-stock':'Limited availability · Please confirm before ordering','out-of-stock':'Currently unavailable · Ask about alternatives'})[product.stockStatus]||'Availability confirmed on inquiry';
+    if(product.visible===0||product.visible===false){label.textContent='This offering is currently unavailable. Please contact us for alternatives.';host.querySelector('[data-quote-add]').disabled=true;}
   }
+  host.querySelectorAll('.offering-card').forEach(card=>applyProductStatus(card,products.find(p=>p.slug===card.dataset.slug)));
 }
-
-

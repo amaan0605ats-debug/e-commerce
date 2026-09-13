@@ -34,7 +34,7 @@ export function renderAdminLogin() {
               <input type="password" id="admin-password" class="admin-form-input" placeholder="••••••••" required autocomplete="current-password">
             </div>
           </div>
-          <div id="admin-login-error" class="admin-login-error" style="display: none;"></div>
+          <div id="admin-login-error" role="alert" class="admin-login-error" style="display: none;"></div>
           <button type="submit" class="admin-login-btn" id="admin-login-btn">
             <span class="admin-login-btn-text">Sign In</span>
             <span class="admin-login-btn-loader" style="display: none;">
@@ -80,7 +80,7 @@ export function initAdminLogin() {
       // Auth state change will handle redirect via main.js
       window.location.hash = '#/admin';
     } catch (error) {
-      let message = 'Invalid credentials. Please try again.';
+      let message = error.message || 'Unable to sign in. Please try again.';
       if (error.code === 'auth/user-not-found') message = 'No account found with this email.';
       if (error.code === 'auth/wrong-password') message = 'Incorrect password.';
       if (error.code === 'auth/too-many-requests') message = 'Too many attempts. Please wait a moment.';
