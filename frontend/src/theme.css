@@ -15,6 +15,8 @@ body.redesign .theme-switch { position:relative; flex-shrink:0; width:64px; heig
 .theme-switch[aria-checked="true"] .theme-moon { color:#24271f; }
 @media(prefers-reduced-motion:no-preference) { .theme-thumb { transition:transform 200ms ease; } }
 html[data-theme="dark"] body.redesign .navbar { background:rgba(23,29,25,.96); }
+html[data-theme="dark"] body.redesign .regional-story { background:var(--soft); }
+html[data-theme="dark"] body.redesign .regional-tags span { border-color:var(--line); color:var(--muted); }
 html[data-theme="dark"] body.redesign:not(.admin-view) .btn-primary:hover { background:#ccd48e; }
 html[data-theme="dark"] body.redesign .quote-count,
 html[data-theme="dark"] body.redesign .contact-success-mark { color:#24271f; }
