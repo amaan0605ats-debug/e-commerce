@@ -9,11 +9,13 @@ import { Router } from './router.js';
 import { createNavbar } from './components/navbar.js';
 import { createFooter } from './components/footer.js';
 import { renderHome, initHome, cleanupHome } from './pages/home.js';
+import { renderPrivacy } from './pages/privacy.js';
 import { renderAbout } from './pages/about.js';
 import { renderService, renderServicesIndex, initServicesIndex, initServiceDetail, filterCatalog } from './pages/service.js';
 import { renderContact, initContact, refreshContactPrefill } from './pages/contact.js';
 import { renderAdminLogin, initAdminLogin } from './pages/admin-login.js';
-import { renderAdmin, initAdmin, cleanupAdmin } from './pages/admin.js';
+let adminModule;
+const loadAdmin=()=>import('./pages/admin.js').then(module=>{adminModule=module;return module;});
 import { auth, onAuthStateChanged, getCachedProducts } from './firebase.js';
 import { services, serviceCategories } from './data/services.js';
 import { initQuoteList } from './components/quote-list.js';
@@ -35,15 +37,15 @@ support.innerHTML='<span aria-hidden="true">↗</span> WhatsApp us';app.appendCh
 initQuoteList();
 const path=()=> ((location.hash.startsWith('#/')?location.hash.slice(1):(location.pathname||'/')+(location.search||'')).split('?')[0].replace(/\/+$/, '') || '/');
 const router=new Router([
-  {path:'/',render:renderHome}, {path:'/about',render:renderAbout},
+  {path:'/',render:renderHome}, {path:'/about',render:renderAbout}, {path:'/privacy',render:renderPrivacy},
   {path:'/services',render:renderServicesIndex}, {path:'/services/:slug',render:renderService},
   {path:'/quote',render:renderQuote}, {path:'/contact',render:renderContact},
   {path:'/admin/login',render:renderAdminLogin},
-  {path:'/admin',render:()=>{if(!auth.currentUser){location.hash='#/admin/login';return '';}return renderAdmin();}},
+  {path:'/admin',render:()=>{if(!auth.currentUser){location.hash='#/admin/login';return '';}if(adminModule)return adminModule.renderAdmin();loadAdmin().then(()=>{if(path()==='/admin')router.handleRoute();}).catch(()=>{document.getElementById('app-content').innerHTML='<section class="editorial-section"><h1>Workspace could not load</h1><p>Check your connection and reload the page.</p></section>';});return '<section class="editorial-section"><h1>Opening your workspace…</h1></section>';}},
 ]);
 const originalHandleRoute=router.handleRoute.bind(router);
 router.handleRoute=()=>{
-  cleanupMotion();cleanupAdmin();cleanupHome();
+  cleanupMotion();adminModule?.cleanupAdmin();cleanupHome();
   const admin=path()==='/admin'||path()==='/admin/login';
   document.body.classList.toggle('admin-view',admin);
   navbar.hidden=admin;footer.hidden=admin;support.hidden=admin;
@@ -59,7 +61,7 @@ router.onRendered=()=>{
   if(current.startsWith('/services/'))initServiceDetail(document.querySelector('.detail-page')?.dataset.service);
   if(current==='/quote')initQuote();
   if(current==='/admin/login')initAdminLogin();
-  if(current==='/admin'&&auth.currentUser)initAdmin();
+  if(current==='/admin'&&auth.currentUser)adminModule?.initAdmin();
   if(current==='/contact')initContact();
   try { initMotion(); } catch { cleanupMotion(); }
   document.querySelectorAll('.counter').forEach(el=>{el.textContent=(el.dataset.target||'')+(el.dataset.suffix||'');});
@@ -109,3 +111,5 @@ document.addEventListener('click',event=>{
   if(!dialog){dialog=document.createElement('dialog');dialog.id='image-dialog';dialog.className='image-dialog';dialog.setAttribute('aria-label','Enlarged offering image');dialog.innerHTML='<button type="button" class="image-dialog-close" aria-label="Close image">×</button><img alt="">';document.body.appendChild(dialog);dialog.querySelector('button').addEventListener('click',()=>dialog.close());dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});}
   const img=dialog.querySelector('img');img.src=gallery.dataset.lightbox;img.alt=gallery.querySelector('img')?.alt||'Offering image';img.onerror=()=>{img.onerror=null;img.src='/images/general-commercial-supplies.webp';};dialog.showModal();
 });
+
+document.addEventListener('error', event => {const image=event.target;if(image instanceof HTMLImageElement && !image.dataset.fallback){image.dataset.fallback='true';image.removeAttribute('srcset');image.src='/images/general-commercial-supplies.webp';}},true);

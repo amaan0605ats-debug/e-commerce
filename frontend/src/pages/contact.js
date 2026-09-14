@@ -144,7 +144,7 @@ export function renderContact() {
                 <li>Vending Machine Regional Distribution</li>
                 <li>General Commercial Supply Cataloging</li>
                 <li>Serving Kashmir Valley & Leh Region</li>
-                <li>10-Person Dedicated Operations Team</li>
+                <li>Project inquiries and supply coordination</li>
               </ul>
             </div>
           </div>
@@ -154,7 +154,7 @@ export function renderContact() {
             <div class="contact-form-box">
               <h3 class="contact-form-title">Send Us a Message</h3>
               <p class="contact-form-subtitle">Tell us what you need. We’ll help with the next step.</p>
-              <form class="contact-form" id="contact-form" onsubmit="event.preventDefault();">
+              <p class="contact-form-subtitle">We use your details to respond to your inquiry. <a href="/privacy">Read our privacy notice</a>.</p><form class="contact-form" id="contact-form">
                 <div class="form-group">
                   <label for="form-name" class="form-label">Full Name</label>
                   <input type="text" id="form-name" autocomplete="name" maxlength="100" class="form-input" placeholder="Your full name" required>

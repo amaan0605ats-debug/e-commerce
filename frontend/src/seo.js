@@ -6,6 +6,7 @@ export function seoForPath(path, catalog=services) {
  const clean=('/'+String(path||'/').replace(/^\/+/, '')).split('?')[0].replace(/\/+$/,'')||'/';
  const pages={
   '/':['Al Gani General Suppliers | Kashmir & Leh','Explore interior materials, modular kitchens, agricultural equipment and commercial supplies for Kashmir and Leh. Build your project quote with Al Gani.'],
+  '/privacy':['Privacy and Inquiry Information | Al Gani','How Al Gani uses inquiry information, browser preferences and contact details.'],
   '/about':['About Al Gani | General Suppliers in Kashmir','Meet Al Gani General Suppliers in Nowgam, serving businesses in Kashmir Valley and Leh with interior materials, equipment and commercial supplies.'],
   '/services':['Supplies & Equipment in Kashmir and Leh | Al Gani','Explore modular kitchens, flooring, interior paneling, agriculture implements, cold storage and commercial equipment. Build your Al Gani quote list.'],
   '/contact':['Contact Al Gani | Suppliers in Kashmir & Leh','Discuss supply requirements, quantities and delivery with Al Gani in Nowgam, Kashmir. Call +91 7780901374 or send a project inquiry.'],

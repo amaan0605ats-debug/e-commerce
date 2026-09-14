@@ -58,6 +58,7 @@ function setup(query = async () => [[]], { resolveProductName = async (_pool, da
       if (name === 'express') return express;
       if (name === 'cors' || name === 'helmet' || name === 'express-rate-limit') return () => () => {};
       if (name === 'dotenv') return { config: () => ({ parsed: {} }) };
+      if (name === './lib/operations.cjs') return {queueEmail:async (_connection,payload)=>emails.push(payload),installOperations:async()=>{},startOutbox:()=>{}};
       if (name === './lib/emailService.cjs') return {
         resolveProductName,
         enqueueOrderStatusEmail: payload => emails.push(payload),

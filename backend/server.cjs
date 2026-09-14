@@ -32,6 +32,10 @@ const {
   verifySmtpConnection,
 } = require('./lib/emailService.cjs');
 
+const {recordPage}=require('./lib/pagination.cjs');
+const {passwordVersion,createAuth,readiness}=require('./lib/security.cjs');
+const {installOperations,queueEmail,startOutbox}=require('./lib/operations.cjs');
+
 const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
 
 const app = express();
@@ -45,7 +49,12 @@ if (process.env.NODE_ENV === 'production') {
 
 // Helmet headers configuration
 app.use(helmet({
-  contentSecurityPolicy: false, // Disable CSP to maintain full compatibility with Vite scripts & styles
+  contentSecurityPolicy: { useDefaults:true, directives:{
+    "default-src":["'self'"], "script-src":["'self'"], "script-src-attr":["'none'"],
+    "style-src":["'self'","'unsafe-inline'","https://fonts.googleapis.com"],
+    "font-src":["'self'","https://fonts.gstatic.com"], "img-src":["'self'","data:","https:"],
+    "connect-src":["'self'"], "object-src":["'none'"], "base-uri":["'self'"], "form-action":["'self'"]
+  } },
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 
@@ -67,45 +76,7 @@ const allowedOrigins = [
   'https://algani.co.in',
   'https://www.algani.co.in'
 ];
-app.use(cors((req, callback) => {
-  const origin = req.header('Origin');
-  let isAllowed = false;
-
-  if (!origin) {
-    isAllowed = true;
-  } else if (process.env.NODE_ENV !== 'production') {
-    isAllowed = true;
-  } else if (allowedOrigins.indexOf(origin) !== -1) {
-    isAllowed = true;
-  } else {
-    try {
-      const originUrl = new URL(origin);
-      // Same-origin check
-      if (originUrl.host === req.header('Host')) {
-        isAllowed = true;
-      }
-      // Render subdomains wildcard check
-      else if (originUrl.hostname.endsWith('.onrender.com') &&
-               (originUrl.hostname.includes('e-commerce-webite') ||
-                originUrl.hostname.includes('e-commerce-website') ||
-                originUrl.hostname.includes('algani-website') ||
-                originUrl.hostname.includes('ecommerce'))) {
-        isAllowed = true;
-      }
-      // Custom domain check
-      else if (originUrl.hostname === 'algani.co.in' ||
-               originUrl.hostname.endsWith('.algani.co.in')) {
-        isAllowed = true;
-      }
-    } catch (e) {}
-  }
-
-  const corsOptions = {
-    origin: isAllowed ? origin : false,
-    credentials: true
-  };
-  callback(null, corsOptions);
-}));
+app.use(cors({origin(origin,callback){callback(null,!origin||allowedOrigins.includes(origin)||process.env.NODE_ENV!=='production');},credentials:false}));
 
 // JSON body size limit (prevent DoS)
 app.use(express.json({ limit: '100kb' }));
@@ -152,28 +123,14 @@ app.use('/api/', generalLimiter);
 
 // JWT Secret Key
 let JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET must be configured in production');
 if (!JWT_SECRET) {
   JWT_SECRET = crypto.randomBytes(32).toString('hex');
   console.log('[security] JWT_SECRET env var is not set. Generated a cryptographically secure random secret key for this session.');
 }
 
 // Authentication guard middleware for admin routes
-function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ code: 'auth/unauthorized', error: 'Authentication required' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
-    if (!decoded.id || !decoded.email) throw new Error('Invalid admin session');
-    req.admin = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ code: 'auth/invalid-token', error: 'Invalid or expired token' });
-  }
-}
+const requireAuth = createAuth(() => pool, JWT_SECRET);
 
 // Input sanitization helper
 function sanitizeInput(str) {
@@ -238,7 +195,7 @@ function getDbSslOptions() {
     process.env.MYSQL_URL ||
     process.env.DATABASE_URL
   ) {
-    return { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' };
+    return { rejectUnauthorized: true, ...(process.env.DB_SSL_CA ? {ca:process.env.DB_SSL_CA.replace(/\\n/g,'\n')} : {}) };
   }
   return undefined;
 }
@@ -249,26 +206,37 @@ let lastDbError = null;
 
 // Enable database health checks
 
-app.get('/api/health', (req, res) => {
-  // Always 200 so Render health checks pass while TiDB is still connecting
-  res.status(200).json({
-    ok: databaseReady,
-    database: databaseReady,
-    smtp: isEmailConfigured(),
-    ...(databaseReady || process.env.NODE_ENV === 'production'
-      ? {}
-      : {
-          fix:
-            'Set MYSQL_URL (cloud) or link Railway MySQL (MYSQLHOST vars). For TiDB/Render add DB_SSL=true, then redeploy.',
-          lastError: lastDbError || 'Database pool not initialized',
-        }),
-  });
+app.use('/api',(req,res,next)=>{
+ res.on('finish',()=>{
+  if(req.admin&&['POST','PUT','DELETE'].includes(req.method)&&databaseReady)
+   pool.query('INSERT INTO admin_audit (id,adminId,method,route,statusCode) VALUES (?,?,?,?,?)',[crypto.randomUUID(),req.admin.id,req.method,req.originalUrl.split('?')[0].slice(0,255),res.statusCode]).catch(error=>console.error('[audit]',error.message));
+ });next();
 });
+app.get('/api/health', async (req,res) => {
+ const database=await readiness(pool,databaseReady);
+ res.status(database?200:503).json({ok:database,database,emailConfigured:isEmailConfigured()});
+});
+app.get('/api/live', (_req,res)=>res.json({ok:true}));
+app.post('/api/auth/logout',requireAuth,async(req,res)=>{
+ await pool.query('INSERT IGNORE INTO revoked_sessions (tokenId,expiresAt) VALUES (?,FROM_UNIXTIME(?))',[req.admin.jti,req.admin.exp]);
+ res.json({success:true});
+});
+app.get('/api/operations',requireAuth,async(req,res)=>{
+ const [email]=await pool.query('SELECT status,COUNT(*) AS count FROM email_outbox GROUP BY status');
+ const [failures]=await pool.query("SELECT id,status,attempts,lastError,createdAt FROM email_outbox WHERE status='failed' ORDER BY createdAt DESC LIMIT 20");
+ res.json({email,failures,emailConfigured:isEmailConfigured()});
+});
+app.post('/api/operations/email/:id/retry',requireAuth,async(req,res)=>{
+ const [result]=await pool.query("UPDATE email_outbox SET status='pending',attempts=0,availableAt=UTC_TIMESTAMP() WHERE id=? AND status='failed'",[req.params.id]);
+ res.status(result.affectedRows?200:404).json({success:!!result.affectedRows});
+});
+app.get('/api/audit',requireAuth,async(req,res)=>{const [rows]=await pool.query('SELECT * FROM admin_audit ORDER BY createdAt DESC LIMIT 100');res.json(rows);});
+
 
 
 // Database connectivity verification middleware
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/') && req.path !== '/api/health' && !databaseReady) {
+  if (req.path.startsWith('/api/') && !['/api/health','/api/live'].includes(req.path) && !databaseReady) {
     return res.status(503).json({
       code: 'auth/database-error',
       error: 'Database not connected. Please contact support or check server logs.',
@@ -313,7 +281,7 @@ async function initDatabase() {
       ssl,
       waitForConnections: true,
       connectionLimit: dbConfig.isManaged ? 5 : 10,
-      queueLimit: 0,
+      queueLimit: 50,
       connectTimeout: 20000,
       enableKeepAlive: true,
     });
@@ -465,7 +433,7 @@ async function initDatabase() {
     if (isEmailConfigured()) {
       const smtpCheck = await verifySmtpConnection();
       if (smtpCheck.ok) {
-        console.log('✉️  Resend email client connected — customer order emails will be sent.');
+        console.log('✉️  Email API key configured; actual delivery is tracked in the outbox.');
       } else {
         console.error('✉️  Resend connection failed:', smtpCheck.reason);
         console.error('    Check your RESEND_API_KEY in .env.');
@@ -475,9 +443,11 @@ async function initDatabase() {
       console.warn('    Add RESEND_API_KEY to your .env file and restart the server.');
     }
 
+    await installOperations(pool);
     // ── DATABASE SEEDING ──
     await seedDatabase();
     databaseReady = true;
+    startOutbox(pool);
     lastDbError = null;
 
   } catch (error) {
@@ -893,6 +863,7 @@ app.post('/api/custom-services', requireAuth, async (req, res) => {
       [slug, count === 0 ? 'out-of-stock' : count <= threshold ? 'low-stock' : 'in-stock', count, threshold]
     );
     
+    if(process.env.OWNER_NOTIFICATION_EMAIL && isEmail(process.env.OWNER_NOTIFICATION_EMAIL))await queueEmail(connection,{to:process.env.OWNER_NOTIFICATION_EMAIL,customerName:name,productName:storedProductName,statusKey:'owner'});
     await connection.commit();
     res.status(201).json({ success: true, slug, name });
   } catch (err) {
@@ -928,7 +899,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: admin.id, email: admin.email, displayName: admin.displayName },
+      { id: admin.id, email: admin.email, displayName: admin.displayName, pv:passwordVersion(admin.password), jti:crypto.randomUUID() },
       JWT_SECRET,
       { expiresIn: '12h' }
     );
@@ -950,11 +921,12 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 // 2. Fetch Customer Inquiries List
 app.get('/api/inquiries', requireAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM inquiries ORDER BY createdAt DESC');
+    if(req.query?.paged==='1')return res.json(await recordPage(pool,'inquiries',req.query));
+    const [rows] = await pool.query('SELECT * FROM inquiries ORDER BY createdAt DESC LIMIT 500');
     res.json(rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch inquiries' });
+    res.status(err.status||500).json({ error: err.status===400?'Invalid page cursor':'Failed to fetch inquiries' });
   }
 });
 
@@ -1001,24 +973,27 @@ app.post('/api/inquiries', contactLimiter, async (req, res) => {
   location = location ? sanitizeInput(location.trim()) : '';
   productName = productName ? sanitizeInput(productName.trim()) : '';
 
+  let connection;
   try {
+    connection=await pool.getConnection(); await connection.beginTransaction();
     const id = 'inq-' + crypto.randomUUID();
     const createdAt = new Date().toISOString();
     const storedProductName = productName || slugToDisplayName(service);
 
-    await pool.query(
+    await connection.query(
       'INSERT INTO inquiries (id, name, email, phone, subject, service, location, message, status, createdAt, productName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [id, name, email, phone, subject, service, location, message, 'pending', createdAt, storedProductName]
     );
 
     // An inquiry is a request for a quote, not a stock reservation.
-    enqueueOrderStatusEmail({
+    await queueEmail(connection,{
         to: email,
         customerName: name,
         productName: storedProductName,
         statusKey: 'pending',
     });
 
+    await connection.commit();
     res.status(201).json({
       id,
       name,
@@ -1033,9 +1008,10 @@ app.post('/api/inquiries', contactLimiter, async (req, res) => {
       productName: storedProductName,
     });
   } catch (err) {
+    if(connection)await connection.rollback().catch(()=>{});
     console.error(err);
     res.status(500).json({ error: 'Failed to save customer inquiry' });
-  }
+  } finally { connection?.release(); }
 });
 
 // 4. Update Inquiry Read Status
@@ -1050,9 +1026,12 @@ app.put('/api/inquiries/:id', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Inquiry flags must be true or false' });
   }
   
+  let connection;
   try {
-    const [rows] = await pool.query('SELECT * FROM inquiries WHERE id = ?', [id]);
+    connection=await pool.getConnection(); await connection.beginTransaction();
+    const [rows] = await connection.query('SELECT * FROM inquiries WHERE id = ? FOR UPDATE', [id]);
     if (rows.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: 'Inquiry not found' });
     }
     
@@ -1071,33 +1050,31 @@ app.put('/api/inquiries/:id', requireAuth, async (req, res) => {
     const dbConverted = convertedToOrder !== undefined ? (convertedToOrder ? 1 : 0) : inquiry.convertedToOrder;
     const dbDeleted = isDeleted !== undefined ? (isDeleted ? 1 : 0) : inquiry.isDeleted;
     
-    await pool.query(
+    await connection.query(
       'UPDATE inquiries SET status = ?, convertedToOrder = ?, isDeleted = ? WHERE id = ?',
       [dbStatus, dbConverted, dbDeleted, id]
     );
 
     if (dbStatus === 'accepted' && previousStatus !== 'accepted') {
-      const resolvedProductName = await resolveProductName(pool, {
+      const resolvedProductName = await resolveProductName(connection, {
         slug: inquiry.service,
         productName: inquiry.productName,
       });
-      try {
-        enqueueOrderStatusEmail({
+      await queueEmail(connection,{
           to: inquiry.email,
           customerName: inquiry.name,
           productName: resolvedProductName,
           statusKey: 'accepted',
         });
-      } catch (mailErr) {
-        console.error('[email] Failed to send acceptance email:', mailErr);
-      }
     }
 
+    await connection.commit();
     res.json({ success: true, id, status: dbStatus, convertedToOrder: dbConverted, isDeleted: dbDeleted });
   } catch (err) {
+    if(connection)await connection.rollback().catch(()=>{});
     console.error(err);
     res.status(500).json({ error: 'Failed to update inquiry' });
-  }
+  } finally { connection?.release(); }
 });
 
 // 4b. Hard-Delete Inquiry (removes from inbox but preserves chart stats)
@@ -1143,7 +1120,8 @@ app.delete('/api/inquiries/:id', requireAuth, async (req, res) => {
 // 5. Fetch B2B Orders List
 app.get('/api/orders', requireAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM orders ORDER BY createdAt DESC');
+    if(req.query?.paged==='1')return res.json(await recordPage(pool,'orders',req.query));
+    const [rows] = await pool.query('SELECT * FROM orders ORDER BY createdAt DESC LIMIT 500');
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -1319,14 +1297,11 @@ app.put('/api/orders/:id', requireAuth, async (req, res) => {
     if (shouldDeliver && order.inquiryId) {
       await connection.query('UPDATE inquiries SET status = ? WHERE id = ?', ['delivered', order.inquiryId]);
     }
-    await connection.commit();
-
     if (shouldApprove || shouldDeliver) {
-      try {
-        const customerCtx = await resolveOrderCustomerContext(pool, order);
+      const customerCtx = await resolveOrderCustomerContext(connection, order);
 
         if (shouldApprove) {
-          enqueueOrderStatusEmail({
+          await queueEmail(connection,{
             to: customerCtx.customerEmail,
             customerName: customerCtx.customerName,
             productName: customerCtx.productName,
@@ -1335,18 +1310,17 @@ app.put('/api/orders/:id', requireAuth, async (req, res) => {
         }
 
         if (shouldDeliver) {
-          enqueueOrderStatusEmail({
+          await queueEmail(connection,{
             to: customerCtx.customerEmail,
             customerName: customerCtx.customerName,
             productName: customerCtx.productName,
             statusKey: 'delivered',
           });
         }
-      } catch (err) {
-        console.error('[email] Order notification task failed:', err);
-      }
+
     }
 
+    await connection.commit();
     res.json({ success: true, id, status, updatedAt });
   } catch (err) {
     if (connection) await connection.rollback().catch(() => {});

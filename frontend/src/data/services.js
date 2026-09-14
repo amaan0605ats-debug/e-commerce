@@ -31,7 +31,7 @@ export const services = [
     shortDesc: 'Premium wall and ceiling paneling solutions for residential, commercial, and hospitality projects across Kashmir.',
     longDesc: `Al Gani delivers premium wall and ceiling paneling solutions tailored specifically for the architectural demands of Kashmir's residential, commercial, and hospitality sectors. Our carefully curated selection of interior panels combines aesthetic elegance with structural resilience, engineered to withstand the region's unique climatic conditions.
 
-We source exclusively from trusted manufacturers who meet our rigorous quality standards, ensuring every panel we supply reflects the premium positioning our clients expect. From classic wood-grain finishes to contemporary high-gloss designs, our paneling portfolio caters to the full spectrum of interior design requirements.
+Confirm the manufacturer, certifications and material specifications with our team before placing an order. From classic wood-grain finishes to contemporary high-gloss designs, our paneling portfolio caters to the full spectrum of interior design requirements.
 
 Our team provides comprehensive support from selection through installation guidance, ensuring seamless integration into any project. Whether you're outfitting a luxury hotel in Srinagar, renovating a commercial office space, or building a premium residential property, Al Gani's paneling solutions deliver beauty and durability in equal measure.`,
     features: [
@@ -42,7 +42,7 @@ Our team provides comprehensive support from selection through installation guid
       'Wall and ceiling applications for residential and commercial use',
       'Full project consultation and installation guidance',
       'Bulk supply capabilities for large-scale construction projects',
-      'Sourced from certified, trusted manufacturers'
+      'Confirm manufacturer details and certifications with our team'
     ],
     gallery: [
       { caption: 'Luxury wood-grain wall paneling in a modern Kashmir hotel lobby' },
@@ -410,7 +410,7 @@ Each deployment is custom-engineered based on detailed site assessments and oper
 
 Our engineering capabilities include multi-temperature cold rooms, controlled atmosphere storage for fruits (particularly Kashmir's famous apple crop), ripening chambers for banana and other tropical fruits, blast freezers, and large-scale cold storage hubs for agricultural cooperatives and wholesale markets. Each facility is designed for energy efficiency, temperature uniformity, and compliance with food safety regulations.
 
-We understand that cold chain integrity is critical in a region where fresh produce must travel significant distances to reach markets. Our cold storage facilities are engineered with redundant refrigeration systems, backup power solutions, and advanced monitoring to ensure continuous temperature control. We provide operator training, maintenance programs, and 24/7 emergency support to keep our clients' cold chains unbroken.`,
+We understand that cold chain integrity is critical in a region where fresh produce must travel significant distances to reach markets. Our cold storage facilities are engineered with redundant refrigeration systems, backup power solutions, and advanced monitoring to ensure continuous temperature control. Discuss operator training, maintenance requirements and available support arrangements with our team.`,
     features: [
       'Multi-temperature cold room design and construction',
       'Controlled atmosphere storage for fruits and produce',
@@ -419,7 +419,7 @@ We understand that cold chain integrity is critical in a region where fresh prod
       'Energy-efficient refrigeration system engineering',
       'Redundant systems and backup power integration',
       'Food safety compliance and HACCP-ready designs',
-      'Operator training and 24/7 maintenance support'
+      'Discuss operator training and maintenance arrangements'
     ],
     gallery: [
       { caption: 'Modern cold storage facility engineered for Kashmir\'s apple industry' },
@@ -437,7 +437,7 @@ We understand that cold chain integrity is critical in a region where fresh prod
     shortDesc: 'Bespoke European-grade modular kitchens crafted with moisture-resistant materials, smart storage innovations, and luxury finishes for Kashmir homes and commercial spaces.',
     longDesc: `Al Gani delivers high-end modular kitchen solutions that seamlessly blend European engineering precision with the warmth and distinct aesthetic of Kashmiri living. Designed for optimal ergonomics, durability, and visual elegance, our modular kitchens are crafted to transform residential homes, luxury villas, boutique hotels, and serviced apartments across Srinagar, the Kashmir Valley, and Ladakh.
 
-We engineer every kitchen using premium moisture-resistant and boiling-waterproof (BWR/HDHMR) core materials specifically chosen to endure Kashmir's seasonal humidity shifts and freezing winter temperatures without warping or delamination. Paired with certified international soft-close hinges, tandem boxes, and motorized lift-ups from world-leading hardware manufacturers like Blum and Hettich, our cabinets guarantee decades of effortless performance.
+We engineer every kitchen using premium moisture-resistant and boiling-waterproof (BWR/HDHMR) core materials specifically chosen to endure Kashmir's seasonal humidity shifts and freezing winter temperatures without warping or delamination. Paired with certified international soft-close hinges, tandem boxes, and motorized lift-ups from world-leading hardware manufacturers like Blum and Hettich, confirm hardware brands, specifications and warranty terms with our team.
 
 From sleek handleless acrylic and polyurethane (PU) gloss layouts to warm natural veneer, matte laminates, and timeless shaker designs, our modular solutions offer endless customization. Complete with heat-resistant quartz and seamless granite countertops, integrated smart pantry units, corner carousel organizers, and heavy-duty chimney ventilation, Al Gani provides complete end-to-end design, precision fabrication, delivery, and professional on-site installation.`,
     features: [

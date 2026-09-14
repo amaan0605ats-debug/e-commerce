@@ -59,7 +59,8 @@ test('public product cache never requests internal admin inventory', async () =>
   await client.api.getCachedProducts();
   await client.api.signOut();
   await client.api.getCachedProducts();
-  assert.equal(requested.length, 1);
+  assert.equal(requested.filter(r=>r.url==='/api/products/public').length, 1);
+  assert.equal(requested.filter(r=>r.url==='/api/auth/logout').length,1);
   assert.equal(requested[0].url, '/api/products/public');
   assert.equal(requested[0].options.headers.Authorization, undefined);
 });

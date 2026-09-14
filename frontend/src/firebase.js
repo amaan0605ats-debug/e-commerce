@@ -33,7 +33,8 @@ const onAuthStateChanged = (_auth, callback) => {
   return () => authListeners.delete(callback);
 };
 
-const signOut = async () => {
+const signOut = async (_auth, remote = true) => {
+  if(remote && auth.currentUser?.token) await request('/api/auth/logout', {method:'POST',data:{}});
   auth.currentUser = null;
   saveSession(null);
   notifyAuth();
@@ -67,7 +68,7 @@ async function request(endpoint, { method = 'GET', data, signal, authenticated =
       error.status = response.status;
       error.code = result?.code || (response.status === 503 ? 'auth/database-error' : 'api/request-failed');
       if (response.status === 401 && ['auth/invalid-token', 'auth/unauthorized'].includes(error.code) && token === auth.currentUser?.token) {
-        await signOut();
+        await signOut(null,false);
       }
       throw error;
     }

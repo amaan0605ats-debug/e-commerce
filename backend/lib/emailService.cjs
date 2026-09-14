@@ -101,6 +101,7 @@ async function resolveProductName(pool, { slug, productName }) {
 }
 
 const TEMPLATES = {
+  owner: {subject:()=> 'New Al Gani inquiry',html:(name,product)=>'<h1>A new inquiry needs your attention</h1><p>'+name+' has asked about '+product+'.</p><p>Sign in to your Al Gani workspace to review the inquiry and reply.</p><a href="https://algani.co.in/admin">Open workspace</a>'},
   pending: {
     subject: (productName) => productName && productName !== 'your selected product'
       ? `Request received — ${productName}`
@@ -124,7 +125,7 @@ const TEMPLATES = {
           <p style="line-height:1.7;">Hello${name ? ` <strong>${name}</strong>` : ''},</p>
           <p style="line-height:1.7;">We have received your inquiry${hasProduct ? ' for:' : '.'}</p>
           ${productBlock}
-          <p style="line-height:1.7;">Our team will review it and get back to you within 24 hours.</p>
+          <p style="line-height:1.7;">Our team will review your requirements and follow up.</p>
           <div style="border-top:1px solid #2a2a2a;margin-top:28px;padding-top:20px;font-size:13px;color:#707070;">
             <p>Thank you for choosing Al Gani.</p>
           </div>
@@ -209,7 +210,7 @@ const TEMPLATES = {
 /**
  * @param {'pending'|'accepted'|'approved'|'delivered'} statusKey
  */
-async function sendOrderStatusEmail({ to, customerName, productName, statusKey }) {
+async function sendOrderStatusEmail({ to, customerName, productName, statusKey, idempotencyKey }) {
   if (!to) {
     console.warn('[email] Skipped — no recipient address');
     return { sent: false, reason: 'no-recipient' };
@@ -242,7 +243,7 @@ async function sendOrderStatusEmail({ to, customerName, productName, statusKey }
       to: [to],
       subject: template.subject(productName),
       html: template.html(escapedName, escapedProduct),
-    });
+    }, idempotencyKey ? {idempotencyKey} : undefined);
 
     if (error) {
       console.error(`[email] Resend error for ${statusKey} → ${to}:`, error);
