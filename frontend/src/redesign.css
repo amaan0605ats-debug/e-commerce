@@ -266,3 +266,25 @@ body.redesign .quote-breadcrumb { margin-bottom:35px; }
 body.redesign.admin-view { --cream:#fbf3e3; --cream-dark:#f0e2c8; --text-dark:#1e0e05; --text-mid:#4a2c0a; --gold:#c8922a; --gold-light:#e0b050; --gold-pale:#f5e0a8; --brown-deep:#1e0e05; --brown-dark:#2e1503; --brown-mid:#5c2e0a; --beige:#dec89a; }
 .contact-success-mark { display:grid; place-items:center; width:68px; height:68px; margin:0 auto 24px; border-radius:50%; background:var(--accent); color:var(--ink); font-size:30px; }
 @media(max-width:768px) { body.redesign .contact-form-col { order:-1; } }
+/* Project browsing and an actionable sourcing brief. */
+.project-guide { background:var(--soft); }
+.project-paths { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
+.project-path { overflow:hidden; border:1px solid var(--line); border-radius:8px; background:var(--paper); }
+.project-path > img { width:100%; aspect-ratio:4/3; height:auto; object-fit:cover; display:block; }
+.project-path-copy { padding:28px; }
+.project-path-copy .eyebrow { font-size:9px; margin-bottom:16px; }
+.project-path-copy h3 { font:400 27px/1.2 'Playfair Display',Georgia,serif; margin-bottom:14px; }
+.project-path-copy p,.sourcing-brief p { font-size:12px; line-height:1.9; color:var(--muted); }
+.project-path-links { margin-top:24px; }
+.project-path-links a { display:flex; justify-content:space-between; gap:12px; padding:13px 0; border-top:1px solid var(--line); color:var(--ink); font-size:11px; line-height:1.5; text-decoration:none; }
+.project-path-links a:hover { text-decoration:underline; text-underline-offset:4px; }
+.sourcing-brief { display:grid; grid-template-columns:1fr 1fr; gap:10%; background:var(--soft); }
+.sourcing-brief h2 { font-size:clamp(34px,4vw,58px); }
+.sourcing-brief > div > p { max-width:390px; margin:24px 0; }
+.brief-checklist > div { display:flex; gap:24px; padding:22px 0; border-bottom:1px solid var(--line); }
+.brief-checklist > div:first-child { padding-top:0; }
+.brief-checklist > div > span { font:italic 24px 'Playfair Display',Georgia,serif; color:var(--muted); }
+.brief-checklist h3 { font-size:15px; font-weight:500; margin:0 0 8px; }
+.brief-checklist > a { margin-top:16px; }
+@media(max-width:900px) { .project-paths { gap:14px; } .project-path-copy { padding:20px; } .project-path-copy h3 { font-size:23px; } }
+@media(max-width:600px) { .project-paths,.sourcing-brief { grid-template-columns:1fr; gap:28px; } .project-path > img { aspect-ratio:16/9; } .project-path-copy { padding:24px; } }
