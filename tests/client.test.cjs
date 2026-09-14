@@ -18,11 +18,20 @@ function setup({ fetch, saved = null, blockedStorage = false } = {}) {
     },
   });
   const source = fs.readFileSync('frontend/src/firebase.js', 'utf8').replace(/export\s*\{[\s\S]*?\};?\s*$/, '');
-  vm.runInContext(source + '\nglobalThis.api = { auth, onSnapshot, collection, doc, getDoc, getDocs, query, where, orderBy, updateDoc, getCachedProducts, signOut, signInWithEmailAndPassword };', context);
+  vm.runInContext(source + '\nglobalThis.api = { auth, onSnapshot, collection, doc, getDoc, getDocs, query, where, orderBy, updateDoc, getCachedProducts, signOut, signInWithEmailAndPassword, changePassword };', context);
   return { api: context.api, timers, stored: () => saved };
 }
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
+
+test('password updates end the invalidated browser session only after server success', async () => {
+  for (const status of [200,400]) {
+    const token=`x.${Buffer.from(JSON.stringify({exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')}.x`;
+    const client=setup({saved:JSON.stringify({uid:'1',email:'admin@example.invalid',token}),fetch:async()=>new Response(JSON.stringify(status===200?{success:true}:{error:'Incorrect password'}),{status})});
+    if(status===200){await client.api.changePassword('admin@example.invalid','old','new');assert.equal(client.api.auth.currentUser,null);assert.equal(client.stored(),null);}
+    else {await assert.rejects(client.api.changePassword('admin@example.invalid','old','new'),/Incorrect password/);assert.ok(client.api.auth.currentUser);}
+  }
+});
 
 test('blocked browser storage and malformed sessions do not crash public pages', () => {
   assert.equal(setup({ blockedStorage: true }).api.auth.currentUser, null);

@@ -170,9 +170,14 @@ const onSnapshot = (reference, callback, errorCallback) => {
   return () => { active = false; clearTimeout(timer); controller.abort(); };
 };
 
-const changePassword = (email, currentPassword, newPassword) => request('/api/auth/change-password', {
-  method: 'PUT', data: { email, currentPassword, newPassword },
-});
+const changePassword = async (email, currentPassword, newPassword) => {
+  const result = await request('/api/auth/change-password', {
+    method: 'PUT', data: { email, currentPassword, newPassword },
+  });
+  // The old token has already been invalidated by the server.
+  await signOut(null, false);
+  return result;
+};
 
 let productsCache = null;
 let lastCacheTime = 0;
