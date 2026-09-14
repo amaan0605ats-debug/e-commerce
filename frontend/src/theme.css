@@ -114,3 +114,14 @@ body.redesign .project-path:nth-child(3) .project-path-copy { border-top:4px sol
 body.redesign .scope-card { --muted:#535b4e; }
 html[data-theme="dark"] body.redesign .scope-card { --muted:#c3cbbb; }
 body.redesign .supply-scope + .collection-section { padding-top:28px; }
+.project-audiences { border-block:1px solid var(--line); }
+.audience-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:28px; }
+.audience-grid article { padding-top:24px; border-top:2px solid var(--line); }
+.audience-grid article:nth-child(2) { border-color:var(--sky); }
+.audience-grid article:nth-child(3) { border-color:var(--accent); }
+.audience-grid article:nth-child(4) { border-color:var(--clay); }
+.audience-grid article > span { display:block; font:italic 22px 'Playfair Display',Georgia,serif; margin-bottom:24px; color:var(--muted); }
+body.redesign .audience-grid h3 { font-size:21px; line-height:1.4; margin-bottom:14px; }
+.audience-grid p { font-size:15px; line-height:1.8; color:var(--muted); }
+@media(max-width:900px) { .audience-grid { grid-template-columns:1fr 1fr; } }
+@media(max-width:500px) { .audience-grid { grid-template-columns:1fr; gap:24px; } .audience-grid article > span { margin-bottom:14px; } }
