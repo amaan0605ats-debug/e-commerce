@@ -1,0 +1,16 @@
+name: Live health
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify readiness and public pages
+        run: |
+          curl --fail --max-time 90 --retry 1 https://algani.co.in/api/health
+          curl --fail --max-time 30 --output /dev/null https://algani.co.in/
+          curl --fail --max-time 30 --output /dev/null https://algani.co.in/sitemap.xml

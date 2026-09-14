@@ -33,3 +33,6 @@ render-env-paste.txt
 
 # Image backups (unoptimized)
 frontend/public/images_backup/
+
+# Encrypted database exports must never be committed.
+*.enc

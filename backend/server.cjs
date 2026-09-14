@@ -1041,6 +1041,7 @@ app.put('/api/inquiries/:id', requireAuth, async (req, res) => {
     // Validation
     if (status !== undefined) {
       if (typeof status !== 'string' || status.trim().length > 50) {
+        await connection.rollback();
         return res.status(400).json({ error: 'Invalid status value' });
       }
       status = sanitizeInput(status.trim());

@@ -41,7 +41,7 @@ const router=new Router([
   {path:'/services',render:renderServicesIndex}, {path:'/services/:slug',render:renderService},
   {path:'/quote',render:renderQuote}, {path:'/contact',render:renderContact},
   {path:'/admin/login',render:renderAdminLogin},
-  {path:'/admin',render:()=>{if(!auth.currentUser){location.hash='#/admin/login';return '';}if(adminModule)return adminModule.renderAdmin();loadAdmin().then(()=>{if(path()==='/admin')router.handleRoute();}).catch(()=>{document.getElementById('app-content').innerHTML='<section class="editorial-section"><h1>Workspace could not load</h1><p>Check your connection and reload the page.</p></section>';});return '<section class="editorial-section"><h1>Opening your workspace…</h1></section>';}},
+  {path:'/admin',render:()=>{if(!auth.currentUser){location.hash='#/admin/login';return '';}if(adminModule)return adminModule.renderAdmin();loadAdmin().then(()=>{if(path()==='/admin')router.handleRoute();}).catch(()=>{if(path()!=='/admin')return;document.getElementById('app-content').innerHTML='<section class="editorial-section"><h1>Workspace could not load</h1><p>Check your connection and reload the page.</p></section>';});return '<section class="editorial-section"><h1>Opening your workspace…</h1></section>';}},
 ]);
 const originalHandleRoute=router.handleRoute.bind(router);
 router.handleRoute=()=>{
