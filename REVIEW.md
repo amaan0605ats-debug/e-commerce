@@ -78,3 +78,10 @@ Prompt: Use case: logo-brand. Create a polished standalone website brand emblem 
 - Browser: quote add/remove, quantity 3 retained in inquiry prefill, empty form required-field validation, catalog search, mobile menu and page navigation checked. No customer inquiry was submitted. No browser console errors observed.
 - Found host-level www redirect to algani.co.in; aligned canonical, structured-data, social and sitemap URLs with the actual destination.
 - Real admin writes and end-to-end email delivery were not exercised on production; their transaction/error behavior is covered by automated tests.
+
+## Motion enhancement — September 14, 2026
+- Added native Web Animations and IntersectionObserver enhancements without new dependencies or changes to content, colors, typography, routes or layout.
+- Selective staggered scroll reveals, existing heading-line masks, image reveals, restrained desktop parallax, card lift, link underlines and three-pixel magnetic button feedback.
+- Added thin scroll progress, mobile disclosure entrance/exit transitions, dialog transitions, gallery/sector fades and FAQ text entrances. Native scrolling, cursor, focus and dialog behavior retained.
+- All motion cancels on route changes or reduced-motion preference changes. Pointer effects require a fine mouse pointer; no CSS hides content awaiting JS. Unsupported animation APIs retain visible content.
+- Validation: 80 tests and production build pass; browser checked heading text, repeated navigation cleanup, 390px layout/no overflow, mobile menu, image preview/Escape and required contact fields/service prefill. Local API is unavailable; no business records were submitted.

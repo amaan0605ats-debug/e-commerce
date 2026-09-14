@@ -1,0 +1,38 @@
+/* Motion only: existing layout, type, colors and dimensions remain unchanged. */
+body.redesign:not(.admin-view) #app-content.page-enter { opacity:1; transform:none; }
+.motion-heading-line { display:block; }
+.reading-progress { position:fixed; top:0; left:0; right:0; height:2px; background:var(--accent); z-index:110; transform:scaleX(0); transform-origin:left; pointer-events:none; }
+@media (prefers-reduced-motion:no-preference) {
+ body.redesign .navbar { transition:background-color 220ms ease,box-shadow 220ms ease; }
+ body.redesign .mobile-menu { transition:opacity 220ms ease,translate 220ms ease,display 220ms allow-discrete; }
+ body.redesign .mobile-menu:not(.open) { opacity:0; translate:0 -8px; }
+ body.redesign .mobile-menu.open { opacity:1; translate:0 0; }
+ body.redesign .mobile-menu.open .mobile-link,body.redesign .mobile-menu.open .mobile-cta { animation:menu-arrive 450ms cubic-bezier(.22,1,.36,1) both; }
+ .mobile-menu-inner > :nth-child(2) { animation-delay:35ms!important; }
+ .mobile-menu-inner > :nth-child(3) { animation-delay:70ms!important; }
+ .mobile-menu-inner > :nth-child(4) { animation-delay:105ms!important; }
+ .mobile-menu-inner > :nth-child(5) { animation-delay:140ms!important; }
+ .mobile-menu-inner > :nth-child(6) { animation-delay:175ms!important; }
+ .image-dialog { opacity:0; transform:scale(.98); transition:opacity 200ms ease,transform 200ms cubic-bezier(.22,1,.36,1),display 200ms allow-discrete,overlay 200ms allow-discrete; }
+ .image-dialog[open] { opacity:1; transform:scale(1); }
+ .image-dialog::backdrop { transition:opacity 200ms,display 200ms allow-discrete,overlay 200ms allow-discrete; opacity:0; }
+ .image-dialog[open]::backdrop { opacity:1; }
+ .editorial-faq-list summary span { transition:transform 200ms ease; }
+ @starting-style {
+  body.redesign .mobile-menu.open { opacity:0; translate:0 -8px; }
+  .image-dialog[open] { opacity:0; transform:scale(.98); }
+  .image-dialog[open]::backdrop { opacity:0; }
+ }
+}
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) {
+ body.redesign:not(.admin-view) .offering-card { transition:translate 220ms cubic-bezier(.22,1,.36,1); }
+ body.redesign:not(.admin-view) .offering-card:hover { translate:0 -4px; }
+ body.redesign:not(.admin-view) .btn-primary { transition:translate 200ms ease,background-color 200ms ease,color 200ms ease; }
+ body.redesign .text-link { text-decoration:none; background-image:linear-gradient(currentColor,currentColor); background-repeat:no-repeat; background-size:0 1px; background-position:0 100%; transition:background-size 220ms ease; }
+ body.redesign .text-link:hover,body.redesign .text-link:focus-visible { background-size:100% 1px; }
+}
+@media (prefers-reduced-motion:reduce) {
+ .reading-progress { display:none; }
+ body.redesign .offering-card,body.redesign .btn-primary,body.redesign .sector-image,body.redesign .story-image img { translate:none!important; scale:none!important; }
+}
+@keyframes menu-arrive { from {opacity:0;transform:translateY(9px)} to {opacity:1;transform:none} }

@@ -1,6 +1,8 @@
 import './style.css';
 import './redesign.css';
 import './quote.css';
+import './motion.css';
+import { initMotion, cleanupMotion } from './motion.js';
 import { Router } from './router.js';
 import { createNavbar } from './components/navbar.js';
 import { createFooter } from './components/footer.js';
@@ -38,7 +40,7 @@ const router=new Router([
 ]);
 const originalHandleRoute=router.handleRoute.bind(router);
 router.handleRoute=()=>{
-  cleanupAdmin();cleanupHome();
+  cleanupMotion();cleanupAdmin();cleanupHome();
   const admin=path()==='/admin'||path()==='/admin/login';
   document.body.classList.toggle('admin-view',admin);
   navbar.hidden=admin;footer.hidden=admin;support.hidden=admin;
@@ -56,6 +58,7 @@ router.onRendered=()=>{
   if(current==='/admin/login')initAdminLogin();
   if(current==='/admin'&&auth.currentUser)initAdmin();
   if(current==='/contact')initContact();
+  try { initMotion(); } catch { cleanupMotion(); }
   document.querySelectorAll('.counter').forEach(el=>{el.textContent=(el.dataset.target||'')+(el.dataset.suffix||'');});
 };
 onAuthStateChanged(auth,user=>{if(path()==='/admin'&&!user)location.hash='#/admin/login';});
