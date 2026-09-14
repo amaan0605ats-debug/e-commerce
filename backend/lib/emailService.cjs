@@ -53,15 +53,6 @@ function getFromAddress() {
   );
 }
 
-/** Fire-and-forget: respond to HTTP immediately, send mail on next tick */
-function enqueueOrderStatusEmail(payload) {
-  setImmediate(() => {
-    sendOrderStatusEmail(payload).catch((err) => {
-      console.error('[email] Background send failed:', err.message || err);
-    });
-  });
-}
-
 async function verifySmtpConnection() {
   if (!isEmailConfigured()) {
     return { ok: false, reason: 'resend-not-configured' };
@@ -276,6 +267,5 @@ module.exports = {
   verifySmtpConnection,
   resolveProductName,
   sendOrderStatusEmail,
-  enqueueOrderStatusEmail,
   slugToDisplayName,
 };

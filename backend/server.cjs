@@ -387,48 +387,49 @@ async function initDatabase() {
       await pool.query('ALTER TABLE inquiries ADD COLUMN location VARCHAR(255) DEFAULT ""');
       console.log('Successfully completed inquiries table migration: added location column.');
     } catch (err) {
-      // Column might already exist, ignore error
+      // Ignore only the expected duplicate-column result.
+      if (err.code !== 'ER_DUP_FIELDNAME' && err.errno !== 1060) throw err;
     }
 
     // Automated DB Migration: ensure inventory columns exist in products table
     try {
       await pool.query('ALTER TABLE products ADD COLUMN inventoryCount INT DEFAULT 100');
-    } catch (err) {}
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME' && err.errno !== 1060) throw err; }
     try {
       await pool.query('ALTER TABLE products ADD COLUMN lowStockThreshold INT DEFAULT 10');
-    } catch (err) {}
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME' && err.errno !== 1060) throw err; }
     try {
       await pool.query('ALTER TABLE products ADD COLUMN supplierEmail VARCHAR(255) DEFAULT "supplier@algani.com"');
-    } catch (err) {}
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME' && err.errno !== 1060) throw err; }
 
     // Automated DB Migration: ensure convertedToOrder column exists in inquiries table
     try {
       await pool.query('ALTER TABLE inquiries ADD COLUMN convertedToOrder INT DEFAULT 0');
       console.log('Successfully completed inquiries table migration: added convertedToOrder column.');
-    } catch (err) {}
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME' && err.errno !== 1060) throw err; }
 
     // Automated DB Migration: ensure isDeleted column exists in inquiries table
     try {
       await pool.query('ALTER TABLE inquiries ADD COLUMN isDeleted INT DEFAULT 0');
       console.log('Successfully completed inquiries table migration: added isDeleted column.');
-    } catch (err) {}
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME' && err.errno !== 1060) throw err; }
 
     // Order management: product display name on inquiries
     try {
       await pool.query('ALTER TABLE inquiries ADD COLUMN productName VARCHAR(255) DEFAULT ""');
       console.log('Successfully completed inquiries table migration: added productName column.');
-    } catch (err) {}
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME' && err.errno !== 1060) throw err; }
 
     // Order management: link deliveries back to customer inquiries
     try {
       await pool.query('ALTER TABLE orders ADD COLUMN inquiryId VARCHAR(255) DEFAULT NULL');
-    } catch (err) {}
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME' && err.errno !== 1060) throw err; }
     try {
       await pool.query('ALTER TABLE orders ADD COLUMN customerEmail VARCHAR(255) DEFAULT ""');
-    } catch (err) {}
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME' && err.errno !== 1060) throw err; }
     try {
       await pool.query('ALTER TABLE orders ADD COLUMN productName VARCHAR(255) DEFAULT ""');
-    } catch (err) {}
+    } catch (err) { if (err.code !== 'ER_DUP_FIELDNAME' && err.errno !== 1060) throw err; }
 
     if (isEmailConfigured()) {
       const smtpCheck = await verifySmtpConnection();
