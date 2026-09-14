@@ -26,7 +26,7 @@ export function initMotion() {
         } catch { /* Animation is optional; the original content stays visible. */ }
       }
     }, {threshold:0});
-    root.querySelectorAll('.offering-card, .project-path, .process-grid > article').forEach(element => {
+    root.querySelectorAll('.offering-card, .project-path, .scope-card, .process-grid > article').forEach(element => {
       // Never restart an entrance on content already painted in the viewport.
       if (element.getBoundingClientRect().top >= innerHeight) observer.observe(element);
     });

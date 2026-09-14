@@ -33,6 +33,6 @@ test('favicon is a genuine multi-resolution ICO and declarations point at valid 
  }
  const manifest=JSON.parse(fs.readFileSync('frontend/public/site.webmanifest','utf8'));
  const icons=[...template.matchAll(/<link rel="(?:icon|apple-touch-icon)"[^>]*href="([^"]+)"/g)].map(m=>m[1]);
- for(const icon of [...icons,...manifest.icons.map(i=>i.src)])assert.ok(fs.existsSync('frontend/public'+icon),icon);
+ for(const icon of [...icons,...manifest.icons.map(i=>i.src)])assert.ok(fs.existsSync('frontend/public'+new URL(icon,'https://algani.co.in').pathname),icon);
  for(const icon of manifest.icons){const data=fs.readFileSync('frontend/public'+icon.src);assert.equal(icon.sizes,`${data.readUInt32BE(16)}x${data.readUInt32BE(20)}`);}
 });

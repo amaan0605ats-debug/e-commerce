@@ -26,6 +26,7 @@ export function createNavbar() {
       </div>
 
       <div class="nav-actions">
+        <button type="button" class="theme-switch" role="switch" aria-label="Dark mode" aria-checked="false"><span class="theme-sun" aria-hidden="true">☀</span><span class="theme-moon" aria-hidden="true">☾</span><span class="theme-thumb" aria-hidden="true"></span></button>
         <a href="/quote" class="nav-quote nav-link" id="nav-quote">Your list <span class="quote-count" data-quote-count>0</span></a>
         <a href="/contact" class="nav-cta" id="nav-cta-btn">Request a quote <span aria-hidden="true">↗</span></a>
         <button type="button" class="nav-hamburger" id="nav-hamburger" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobile-menu">

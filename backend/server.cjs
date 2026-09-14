@@ -1528,6 +1528,8 @@ app.get('/sitemap.xml', async (req, res, next) => {
  catch (error) { next(error); }
 });
 app.use('/api', (req, res) => res.status(404).json({ error: 'API endpoint not found' }));
+// Vite asset names include a content hash, so revisits can reuse them safely.
+app.use('/assets', express.static(path.join(FRONTEND_DIST, 'assets'), { immutable: true, maxAge: '1y' }));
 app.use(express.static(FRONTEND_DIST, { index: false }));
 app.use(async (req, res, next) => {
  if (!['GET', 'HEAD'].includes(req.method)) return res.status(405).send('Method not allowed');
